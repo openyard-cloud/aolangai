@@ -18,6 +18,8 @@ The details behind the [README](../README.md). Account names below (`Personal`, 
 - [Settings](#settings)
 - [Menu bar and notifications](#menu-bar-and-notifications)
 - [Data store](#data-store)
+- [Privacy](#privacy)
+- [Uninstall](#uninstall)
 - [Known limitations](#known-limitations)
 - [Development](#development)
 - [Upgrading from the old store](#upgrading-from-the-old-store)
@@ -28,11 +30,15 @@ The details behind the [README](../README.md). Account names below (`Personal`, 
 - **Where the app looks for `claude`.** On its `PATH`, then in `~/.local/bin`, `/opt/homebrew/bin`, `/usr/local/bin`, `/usr/bin` and `/bin`, in that order. An app opened from Finder or at login only has the short `PATH` of a GUI app, so a `claude` installed under a Node version manager's folder (nvm, fnm, volta, asdf) is not found, even though it works in your terminal. Link it into `~/.local/bin` (for example `ln -s "$(command -v claude)" ~/.local/bin/claude`) or install Claude Code with its own installer, then reopen aolangai.
 - **What `npm run dist` does.** It deletes `packages/core/dist` and `packages/cli/dist`, builds core, the CLI and the app again, packs `apps/desktop/release/mac-arm64/aolangai.app` (the `aolangai` command and the skill are inside it), and checks the result with `apps/desktop/scripts/check-dist.mjs`. The app is ad-hoc signed for this Mac, not notarized, and not uploaded anywhere.
 - **Updating.** `git pull`, run `npm run dist` again, quit the running app, drag the new `aolangai.app` over the old one in Applications, and open it.
+- **First launch: what macOS asks.** The first time the app drives Terminal, macOS asks for permission to let aolangai control it, used for **Log in**, **Open Terminal**, **Open in Terminal**, **Switch to** and session names. If a Claude Code session is open in Terminal, the prompt can appear by itself within seconds of the first launch, before you press anything: the scan for session names asks Terminal for its tab titles. Because every ad-hoc signed build has a new signature, macOS may ask again after each rebuild. If you refused, the app says `Could not open Terminal. Check that aolangai may control Terminal in System Settings > Privacy & Security > Automation.` macOS may also ask to allow notifications the first time the app posts one, and may show a Login Items notice when you turn on **Open aolangai at login**; nobody has confirmed either on the packaged app yet.
+- **After installing.** The packaged app installs the skill and the command `~/.local/bin/aolangai` each time it opens. A Claude Code session that was already open may need restarting to see the skill. Closing the window leaves the app in the menu bar; **Quit** there stops it.
 - **The setup card.** The top of the main window has a card, `aolangai setup`, with five steps: install Claude Code, add at least one account, log in to every account, turn on **Accepting work** for at least one account, install the skill and the command. Most unfinished steps have an **Open** button that goes to the right place; installing Claude Code and turning on **Accepting work** show a hint instead. The card disappears when every step is done. Once there is an account, **Hide** dismisses it, and the app remembers that.
 - **Config dir choices.** For the account already logged in at `~/.claude`, **default (~/.claude)** leaves `CLAUDE_CONFIG_DIR` unset, because Claude Code finds its login by the folder's name (see [Environment](#environment)). **let the app create its own folder (auto)** creates the folder under `~/Library/Application Support/aolangai/profiles/`. **another path** takes a folder such as `~/.claude-b`. **Log in** opens Terminal and runs `claude auth login` with that config dir, and you log in through Claude's own flow; **Check** then shows `connected`.
 - **Accepting work.** A new account starts as **Watch only**: its quota shows, but no run goes to it. Turn the switch on the lane of each account that should take runs. Your main account can stay **Watch only**.
 
 ## The window
+
+![Run detail with sample data: a finished run's result, a denied command, the worker's steps, Retry and Open in Terminal](screenshots/run-detail.png)
 
 - **Lanes.** One lane per account: quota bars (5 hours, week, and per model when there is one), the **Accepting work** / **Watch only** switch, the allowed folders, a warning when the account is over its reserve or not logged in, the open sessions (see [Open sessions](#open-sessions)), the runs in progress with the step the worker is on, and the last 5 finished runs. Quota updates every minute.
 - **Needs you.** Failed runs, runs that hit an account's limit, runs that finished with a permission denied (within the last 24 hours and not retried yet), and accounts over their reserve. Failed and limited runs have **Retry**, which runs the same prompt again and chooses the account again by the usual rules; the result shows in the app, not in the main session, because the original command has exited. A denied run has **View** and **Open settings.json**.
@@ -305,9 +311,11 @@ The command is a small shell script that runs the code of aolangai's CLI package
   - `unknown account` is a session with a config dir no account has, a session that sets `CLAUDE_CONFIG_DIR` to exactly `~/.claude` (Claude Code treats that as a different login from leaving it unset), or a session running on an API key or token set in its environment.
 - **No effect on runs.** Open sessions do not count toward the runs-at-once guard and do not affect account choice, and neither does the Claude desktop assignment.
 
-What the app reads to do this is listed under Privacy in the [README](../README.md#privacy).
+What the app reads to do this is listed under [Privacy](#privacy).
 
 ## Settings
+
+![Settings, Accounts tab, with sample data: three accounts and the Claude desktop account box](screenshots/settings.png)
 
 - **Accounts**: **Add account**, and for each account **Check**, **Log in**, **Open settings.json**, **Edit** and **Delete**; below them, **Claude desktop uses account** (see [Open sessions](#open-sessions)).
 - **Limits**: the eight numbers of [Guards and tuning](#guards-and-tuning-settings--limits).
@@ -323,9 +331,27 @@ What the app reads to do this is listed under Privacy in the [README](../README.
 
 The app is not needed to delegate: the command reads and writes the data store itself, and the app shows those runs when it opens. The store is `~/Library/Application Support/aolangai/aolangai.db` (or `AOLANGAI_DB`). The same folder holds `profiles/`, the config dirs of accounts created with **let the app create its own folder (auto)**.
 
+## Privacy
+
+- The only `claude` aolangai runs is the official one that you installed. Logging in goes through Claude's own flow (`claude auth login`). aolangai does not read, store or forward login tokens.
+- To find open sessions and the app that hosts each one, the app lists the processes on the Mac with `ps` (process id, parent, user, terminal, start time, executable path) and keeps only the `claude` processes of the current macOS user.
+- To place open sessions in the right lane, the app reads the environment of those `claude` processes (except Claude desktop's sessions) with `ps` and uses exactly one value: `CLAUDE_CONFIG_DIR`, a folder path. For `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN` and `CLAUDE_CODE_OAUTH_TOKEN` it only looks at whether the name is present. No other value is used, stored or logged. It also reads each session's working folder with `lsof`, to show the folder in the session's row.
+- In an account's config dir the app reads and writes only two things: `settings.json` (only to open it for you to edit) and the single file `skills/aolangai/SKILL.md` (aolangai's skill, written when it is missing or was created by aolangai; an existing file that aolangai did not create is never overwritten). It reads nothing else there, does not touch the Keychain, and does not read tokens.
+- The app and the command send nothing anywhere themselves: no analytics, no crash reports, no update checks. The only network use is the `claude` you installed, under your own login: asking for quota, checking that an account is logged in (`claude auth status`), doing the work you delegate, and the sessions you open in Terminal. A link in a run's result opens in your browser only when you click it.
+- To get session names, the app reads only two things of each Terminal tab: its terminal device (tty) and its tab title. It does not read window names, because a window name can contain environment variables of the process running in the tab.
+
+## Uninstall
+
+First turn off **Open aolangai at login** (**Settings → App & command**) and quit the app from the menu bar. Deleting `aolangai.app` does not remove what the app wrote outside itself. Remove these yourself:
+
+- `~/.local/bin/aolangai`: after the app is gone, it fails because the file it points to no longer exists.
+- `~/.claude/skills/aolangai/`, and `<config dir>/skills/aolangai/` of each account with its own config dir: this skill still tells sessions to call `aolangai`.
+- The data store (accounts, run history, settings) in `~/Library/Application Support/aolangai/`, if you no longer need it.
+- That folder also holds `profiles/`, the config dirs of accounts created with **let the app create its own folder (auto)**; the logins made with `claude auth login` stay in the Keychain under Claude Code's own entries (aolangai never touches the Keychain), and you remove them with Claude Code or Keychain Access.
+
 ## Known limitations
 
-The README lists five of these; this is the complete list.
+The README names a few of these; this is the complete list.
 
 Delegated runs:
 
@@ -340,6 +366,10 @@ Delegated runs:
 - Each account has its own `CLAUDE.md`, skills and permission rules. aolangai copies nothing from one account to another; you set each one up.
 - Only Claude subscription accounts. No API keys, Cursor or Codex yet.
 - The command works from Claude Code in a terminal, and is meant to work from a Code session of Claude desktop that runs on the Mac (the Local environment; not verified yet, see the README's [Status](../README.md#status)). A Claude desktop session that runs in the cloud has its Bash on a Linux virtual machine and cannot see `aolangai`, the config dirs or your Keychain (quick check: `uname -sm` must print `Darwin`). The Chat tab has no Bash.
+
+Quota:
+
+- The quota numbers come from an experimental call of the Claude Agent SDK, pointed at the `claude` you installed. That call may change or disappear in a later SDK version.
 
 Terminal and environment:
 
@@ -356,6 +386,18 @@ Open sessions:
 
 ## Development
 
+```sh
+npm test            # vitest; never runs the real claude (uses a fake one)
+npm run typecheck   # core, cli, the cli tests and the app
+npm run build       # builds core, cli and the app into packages/*/dist and apps/desktop/out
+npm run dist        # clean build, packs the app into apps/desktop/release and checks it
+npm run build:demo  # the browser demo on sample data, into site/demo
+npm run build:site  # the website in site/: builds the demo and checks every page and picture is there
+node scripts/screenshots.mjs   # docs/screenshots/*.png from the demo, and site/og.png, with headless Chrome
+```
+
+- **Layout.** `packages/core` (account choice, workers, the SQLite store, quota, installing), `packages/cli` (the command in `src/`, the skill in `skill/SKILL.md`), `apps/desktop` (the Electron app in `src/main`, `src/preload`, `src/renderer`, and the browser demo in `demo/`), `scripts/screenshots.mjs`.
+- **The website.** aolangai.openyard.cloud is the `site/` folder (`index.html`, `privacy.html` and the demo). The maintainers deploy it with wrangler, using `wrangler.jsonc`, after `npm run build:site`.
 - **Running from source.** `npm run build`, then `cd apps/desktop && npm run start` (`npm run dev` for a dev run with hot reload). This build uses the `aolangai` command in `packages/cli`, run by the Mac's Node, and does not install the skill or the command by itself: press **Install skill and command** in **Settings → App & command**. Do not run it at the same time as the installed app: both use the same data store, so opening a second one only brings the running one's window to the front.
 - **Switching between the source build and the packaged app.** The source build then shows the command as `installed, out of date` and keeps the last step of the setup card open, because the command points into the packaged app. Pressing **Install skill and command** there (or running `node packages/cli/dist/index.js install`) points `~/.local/bin/aolangai` back at the repository, until the packaged app opens again.
 - **The demo.** `npm run build:demo` builds the real window to run in a browser on invented accounts and runs, with no network access, into `site/demo`. Open `site/demo/index.html`. Query strings pick a view: `?scene=overview` (the default), `?scene=needs-you`, `?scene=run&id=46`, `?scene=settings`, `?scene=setup`. `static=1` freezes the clock and stops the demo's own timers; `static=1&bare=1` also hides the demo bar.
