@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!-- No network at all: scripts, styles and images come from these files only, and nothing may connect anywhere. -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'"
+    />
+    <title>aolangai demo</title>
+    <style>
+      /* The bar sits above the app, which fills the rest of the page; the app's own styles come from styles.css. */
+      body { display: flex; flex-direction: column; }
+      .demo-bar {
+        flex: none;
+        padding: 5px 14px;
+        font: 12px/1.4 -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+        text-align: center;
+        color: var(--muted);
+        background: color-mix(in srgb, var(--accent) 9%, var(--panel));
+        border-bottom: 1px solid var(--border);
+        transition: background-color 0.2s, color 0.2s, border-color 0.2s;
+      }
+      /* What the real app would do at a button the demo cannot run: the same bar, in a stronger accent tint. */
+      .demo-bar.explaining {
+        color: var(--text);
+        font-weight: 600;
+        background: color-mix(in srgb, var(--accent) 24%, var(--panel));
+        border-bottom-color: color-mix(in srgb, var(--accent) 60%, var(--border));
+      }
+      /* A transformed #root is the box the app's fixed panels (run detail, toasts) are placed in, so they stay below the bar. */
+      body > #root { flex: 1 1 0; min-height: 0; height: auto; transform: translate(0, 0); }
+      .demo-bare .demo-bar { display: none; }
+    </style>
+  </head>
+  <body>
+    <div class="demo-bar" role="status" aria-live="polite">Demo with sample data. Nothing here talks to Claude or to your machine.</div>
+    <div id="root"></div>
+    <script type="module" src="./main.tsx"></script>
+  </body>
+</html>

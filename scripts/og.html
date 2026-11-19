@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<!--
+  The source of site/og.png, the 1200x630 picture that links to the site show. It is not part of the site.
+  node scripts/screenshots.mjs renders it with headless Chrome at 1200x630 after the README screenshots, so the
+  window in it is docs/screenshots/overview.png: sample data only.
+-->
+<title>aolangai og image</title>
+<style>
+:root { --bg: #f7f7f5; --panel: #ffffff; --text: #1f1f1d; --muted: #62615d; --border: #dddcd6; --accent: #b8501c; --chrome: #ecebe7; }
+* { box-sizing: border-box; }
+html, body { margin: 0; width: 1200px; height: 630px; overflow: hidden; }
+body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif; -webkit-font-smoothing: antialiased; position: relative; }
+.text { position: absolute; left: 64px; top: 64px; width: 430px; height: 502px; display: flex; flex-direction: column; }
+.brand { display: flex; align-items: center; gap: 16px; font-size: 54px; font-weight: 700; letter-spacing: -0.03em; line-height: 1; }
+.brand svg { width: 52px; height: 52px; }
+.line { margin: 34px 0 0; font-size: 29px; line-height: 1.32; letter-spacing: -0.01em; font-weight: 500; }
+.foot { margin-top: auto; font-size: 20px; color: var(--muted); line-height: 1.5; }
+.foot b { color: var(--text); font-weight: 600; }
+.window { position: absolute; left: 548px; top: 64px; width: 760px; height: 640px; background: var(--panel); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; box-shadow: 0 1px 2px rgb(0 0 0 / 0.05), 0 24px 60px -20px rgb(0 0 0 / 0.3); }
+.titlebar { display: flex; gap: 8px; align-items: center; height: 34px; padding: 0 14px; background: var(--chrome); border-bottom: 1px solid var(--border); }
+.titlebar i { width: 12px; height: 12px; border-radius: 50%; background: #ff5f57; }
+.titlebar i:nth-child(2) { background: #febc2e; }
+.titlebar i:nth-child(3) { background: #28c840; }
+.shot { position: relative; height: 606px; overflow: hidden; background: var(--bg); }
+/* The overview is 1440 CSS px wide with the lanes from x=170; drawn at 1200 px and shifted left, the lanes start near the frame edge. */
+.shot img { position: absolute; top: -26px; left: -124px; width: 1200px; height: auto; }
+</style>
+</head>
+<body>
+<div class="text">
+  <div class="brand"><svg viewBox="0 0 100 100" aria-hidden="true"><rect x=".75" y=".75" width="98.5" height="98.5" rx="21.75" fill="#fbefe4" stroke="#e5cfbc" stroke-width="1.5"/><rect x="34" y="16" width="50" height="38" rx="7" fill="#f5c6a2"/><rect x="26" y="27" width="50" height="38" rx="7" fill="#e5814f"/><rect x="18" y="38" width="50" height="40" rx="7" fill="#2b201b"/><path d="M43 38 L43 31" stroke="#2b201b" stroke-width="4" stroke-linecap="round"/><circle cx="43" cy="27" r="5" fill="#ff9a55"/><rect x="31.5" y="50" width="7" height="13" rx="3.5" fill="#fff"/><rect x="47.5" y="50" width="7" height="13" rx="3.5" fill="#fff"/></svg>aolangai</div>
+  <p class="line">Every Claude account's quota and open sessions on your Mac in one place, and work handed to the account with the most quota left.</p>
+  <p class="foot"><b>aolangai.openyard.cloud</b><br>macOS app and command · open source · MIT</p>
+</div>
+<div class="window">
+  <div class="titlebar"><i></i><i></i><i></i></div>
+  <div class="shot"><img id="shot" src="../docs/screenshots/overview.png" alt=""></div>
+</div>
+<script>
+// The screenshot script waits for this flag, so the picture is never taken before the window image is drawn.
+const img = document.getElementById("shot");
+const ready = () => { document.documentElement.dataset.ogReady = img.naturalWidth > 0 ? "yes" : "broken"; };
+if (img.complete) ready(); else { img.addEventListener("load", ready); img.addEventListener("error", ready); }
+</script>
+</body>
+</html>

@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <!-- The aolangai app icon ("bot stack"): three Claude Code windows, one per account; the front one is an agent.
+       Drawn on a 100-unit grid, placed in the 824 px tile of a 1024 px macOS icon canvas.
+       icon.icns is made from this file by scripts/icons.sh. The site's mark (site/*.html, scripts/og.html) is the same drawing. -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fffaf4"/><stop offset="1" stop-color="#f1e1d2"/></linearGradient>
+    <!-- in the 100-unit grid: about 10 px down and 12 px of blur at 1024 -->
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="125%"><feDropShadow dx="0" dy="1.2" stdDeviation="1.4" flood-color="#000" flood-opacity="0.28"/></filter>
+  </defs>
+  <g transform="translate(100 100) scale(8.24)">
+    <rect width="100" height="100" rx="22.5" fill="url(#bg)" filter="url(#shadow)"/>
+    <rect x="34" y="16" width="50" height="38" rx="7" fill="#f5c6a2"/>
+    <rect x="26" y="27" width="50" height="38" rx="7" fill="#e5814f"/>
+    <rect x="18" y="38" width="50" height="40" rx="7" fill="#2b201b"/>
+    <path d="M43 38 L43 31" stroke="#2b201b" stroke-width="4" stroke-linecap="round"/>
+    <circle cx="43" cy="27" r="5" fill="#ff9a55"/>
+    <rect x="31.5" y="50" width="7" height="13" rx="3.5" fill="#fff"/>
+    <rect x="47.5" y="50" width="7" height="13" rx="3.5" fill="#fff"/>
+  </g>
+</svg>

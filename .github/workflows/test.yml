@@ -1,0 +1,24 @@
+name: Tests and build
+# Every pull request and every push to main: the test suite, the type check, the app build and the website build.
+# macOS, because the app and its tests target macOS. Nothing is packed or signed here (no npm run dist).
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: macos-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run typecheck
+      - run: npm run build
+      - run: npm run build:site

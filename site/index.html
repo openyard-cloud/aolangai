@@ -1,0 +1,401 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- Everything comes from this site: inline styles and scripts, the demo in a same-origin frame, images from here. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src 'self' data:; frame-src 'self'; base-uri 'none'; form-action 'none'">
+<title>aolangai: every Claude account's quota in one place</title>
+<meta name="description" content="A macOS app and a command for people with more than one Claude subscription account on one Mac: every account's quota and open Claude Code sessions in one window, and work handed to the account with the most quota left.">
+<link rel="canonical" href="https://aolangai.openyard.cloud/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="aolangai">
+<meta property="og:title" content="aolangai: every Claude account's quota in one place">
+<meta property="og:description" content="See every Claude account's quota and open Claude Code sessions on your Mac in one window, and hand work to the account with the most quota left. Open source, MIT.">
+<meta property="og:url" content="https://aolangai.openyard.cloud/">
+<meta property="og:image" content="https://aolangai.openyard.cloud/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="The aolangai window with sample data: three accounts with quota bars, open sessions and delegated work">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="aolangai: every Claude account's quota in one place">
+<meta name="twitter:description" content="See every Claude account's quota and open Claude Code sessions on your Mac in one window, and hand work to the account with the most quota left.">
+<meta name="twitter:image" content="https://aolangai.openyard.cloud/og.png">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect x='.75' y='.75' width='98.5' height='98.5' rx='21.75' fill='%23fbefe4' stroke='%23e5cfbc' stroke-width='1.5'/%3E%3Crect x='34' y='16' width='50' height='38' rx='7' fill='%23f5c6a2'/%3E%3Crect x='26' y='27' width='50' height='38' rx='7' fill='%23e5814f'/%3E%3Crect x='18' y='38' width='50' height='40' rx='7' fill='%232b201b'/%3E%3Cpath d='M43 38 L43 31' stroke='%232b201b' stroke-width='4' stroke-linecap='round'/%3E%3Ccircle cx='43' cy='27' r='5' fill='%23ff9a55'/%3E%3Crect x='31.5' y='50' width='7' height='13' rx='3.5' fill='%23fff'/%3E%3Crect x='47.5' y='50' width='7' height='13' rx='3.5' fill='%23fff'/%3E%3C/svg%3E">
+<script>document.documentElement.classList.add("js");</script>
+<style>
+/* The palette is the app's own (apps/desktop/src/renderer/styles.css), so the page and the demo inside it match. */
+:root {
+  --bg: #f7f7f5;
+  --panel: #ffffff;
+  --text: #1f1f1d;
+  --muted: #62615d;
+  --border: #dddcd6;
+  --accent: #b8501c;
+  --accent-text: #ffffff;
+  --ok: #2e8a4e;
+  --warn: #c88a12;
+  --warn-text: #7a5208;
+  --code: #f3f2ee;
+  --chrome: #ecebe7;
+  --shadow: 0 1px 2px rgb(0 0 0 / 0.05), 0 18px 40px -18px rgb(0 0 0 / 0.25);
+  --sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+  --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1b1b1a;
+    --panel: #232322;
+    --text: #ebeae6;
+    --muted: #a3a29c;
+    --border: #3a3a37;
+    --accent: #f08a4b;
+    --accent-text: #1f130c;
+    --ok: #5cc27f;
+    --warn: #e5b04a;
+    --warn-text: #e5b04a;
+    --code: #2a2a28;
+    --chrome: #2c2c2a;
+    --shadow: 0 1px 2px rgb(0 0 0 / 0.4), 0 22px 48px -18px rgb(0 0 0 / 0.7);
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+@media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
+body { margin: 0; background: var(--bg); color: var(--text); font: 17px/1.6 var(--sans); -webkit-font-smoothing: antialiased; }
+a { color: var(--accent); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 0.18em; }
+a:hover { text-decoration-thickness: 2px; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 4px; }
+code, pre { font-family: var(--mono); }
+code { font-size: 0.86em; background: var(--code); border: 1px solid var(--border); border-radius: 5px; padding: 0.05em 0.35em; overflow-wrap: anywhere; }
+pre { margin: 12px 0 0; padding: 14px 16px; background: var(--code); border: 1px solid var(--border); border-radius: 8px; overflow-x: auto; font-size: 14px; line-height: 1.55; }
+pre code { background: none; border: 0; padding: 0; font-size: inherit; overflow-wrap: normal; }
+b, strong { font-weight: 600; }
+h1, h2, h3 { line-height: 1.2; letter-spacing: -0.012em; }
+h2 { font-size: 28px; margin: 0 0 12px; }
+h3 { font-size: 18px; margin: 0 0 6px; }
+p { margin: 0 0 12px; }
+.wrap { max-width: 1120px; margin: 0 auto; padding: 0 24px; }
+.wrap-wide { max-width: 1230px; margin: 0 auto; padding: 0 24px; }
+.measure { max-width: 40rem; }
+.skip { position: absolute; left: 12px; top: -48px; background: var(--panel); padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px; z-index: 10; }
+.skip:focus { top: 12px; }
+
+/* Top bar, after the app's own */
+.topbar { background: var(--panel); border-bottom: 1px solid var(--border); }
+.topbar .wrap { display: flex; align-items: center; gap: 16px; height: 52px; }
+.brand { display: inline-flex; align-items: center; gap: 9px; color: var(--text); text-decoration: none; font-weight: 600; font-size: 16px; }
+.brand svg { width: 22px; height: 22px; flex: none; }
+.topbar nav { margin-left: auto; display: flex; gap: 20px; font-size: 15px; }
+.topbar nav a { color: var(--muted); text-decoration: none; }
+.topbar nav a:hover { color: var(--text); text-decoration: underline; }
+
+/* Hero */
+.hero { padding-top: 64px; padding-bottom: 40px; }
+.eyebrow { margin: 0 0 10px; color: var(--muted); font-size: 15px; }
+h1 { font-size: clamp(40px, 6vw, 58px); letter-spacing: -0.03em; line-height: 1.05; margin: 0 0 16px; font-weight: 700; }
+.lead { font-size: clamp(18px, 1.6vw, 21px); line-height: 1.5; max-width: 36em; margin: 0 0 28px; }
+.actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.button { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 18px; border-radius: 8px; border: 1px solid var(--border); background: var(--panel); color: var(--text); font-weight: 600; font-size: 16px; text-decoration: none; }
+.button:hover { border-color: var(--muted); text-decoration: none; }
+.button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+.button.primary:hover { background: color-mix(in srgb, var(--accent) 88%, var(--text)); }
+.button svg { width: 18px; height: 18px; flex: none; }
+.facts { margin: 16px 0 0; font-size: 15px; color: var(--muted); }
+
+/* The demo in a window frame */
+.demo { padding: 8px 0 24px; scroll-margin-top: 16px; }
+.demo h2 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.window { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow); overflow: hidden; }
+.titlebar { position: relative; display: flex; align-items: center; height: 34px; padding: 0 12px; background: var(--chrome); border-bottom: 1px solid var(--border); }
+.lights { display: flex; gap: 8px; }
+.lights i { width: 12px; height: 12px; border-radius: 50%; background: #ff5f57; box-shadow: inset 0 0 0 0.5px rgb(0 0 0 / 0.18); }
+.lights i:nth-child(2) { background: #febc2e; }
+.lights i:nth-child(3) { background: #28c840; }
+.titlebar span { position: absolute; left: 0; right: 0; text-align: center; font-size: 13px; font-weight: 600; color: var(--muted); pointer-events: none; }
+.view { position: relative; overflow: hidden; height: 820px; background: var(--bg); }
+.view iframe { position: absolute; top: 0; left: 0; width: 1180px; height: 820px; border: 0; transform-origin: 0 0; background: var(--bg); }
+.cover { position: absolute; inset: 0; display: flex; align-items: flex-end; justify-content: center; padding: 0 0 22px; border: 0; margin: 0; background: transparent; cursor: pointer; font: inherit; color: inherit; }
+.cover span { padding: 8px 16px; border-radius: 999px; background: var(--text); color: var(--bg); font-size: 15px; font-weight: 600; box-shadow: 0 6px 18px -6px rgb(0 0 0 / 0.4); opacity: 0.9; }
+.cover:hover span, .cover:focus-visible span { opacity: 1; }
+.cover:focus-visible { outline-offset: -4px; }
+.view.active .cover { visibility: hidden; }
+.caption { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 24px; margin-top: 14px; font-size: 15px; color: var(--muted); }
+.caption p { margin: 0; max-width: 46rem; }
+.still img { display: block; width: 100%; height: auto; }
+.still-note { margin: 14px 0 0; font-size: 15px; color: var(--muted); }
+/* No script, or a narrow screen: the picture. A wide screen with script: the live window. */
+.live { display: none; }
+.js .live { display: block; }
+.js .still { display: none; }
+@media (max-width: 899.98px) {
+  .js .live { display: none; }
+  .js .still { display: block; }
+}
+
+/* Sections */
+section.block { padding: 64px 0; border-top: 1px solid var(--border); }
+/* On a wide screen the heading sits in a left column and the text keeps a readable measure beside it. */
+.split { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 16px 48px; align-items: start; }
+.split > * { min-width: 0; }
+@media (max-width: 1099.98px) { .split { grid-template-columns: minmax(0, 1fr); } .split > .spacer { display: none; } }
+.intro { margin: 0 0 24px; color: var(--muted); }
+.cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.card { min-width: 0; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 22px 24px 12px; }
+.card p { font-size: 16px; }
+.card .limit { color: var(--muted); }
+@media (max-width: 760px) { .cards { grid-template-columns: 1fr; } }
+
+.points { list-style: none; padding: 0; margin: 0 0 20px; display: grid; gap: 12px; }
+.points li { position: relative; padding-left: 22px; min-width: 0; }
+.points li::before { content: ""; position: absolute; left: 2px; top: 0.62em; width: 8px; height: 8px; border-radius: 50%; background: var(--ok); }
+
+.steps { list-style: none; padding: 0; margin: 0 0 24px; counter-reset: step; display: grid; gap: 22px; }
+.steps > li { position: relative; padding-left: 46px; counter-increment: step; min-width: 0; }
+.steps > li::before { content: counter(step); position: absolute; left: 0; top: -1px; width: 30px; height: 30px; border-radius: 50%; border: 1.5px solid var(--accent); color: var(--accent); font-weight: 600; font-size: 15px; display: grid; place-items: center; font-variant-numeric: tabular-nums; }
+.steps h3 { font-size: 17px; margin: 0 0 4px; line-height: 1.6; }
+.steps p { margin: 0 0 6px; }
+.steps ul { margin: 0; padding-left: 20px; }
+
+/* The caution looks like the app's own Needs you box */
+.needs { border: 1px solid color-mix(in srgb, var(--warn) 55%, var(--border)); background: color-mix(in srgb, var(--warn) 8%, var(--panel)); border-radius: 8px; padding: 26px 28px 14px; }
+.tag { display: block; margin: 0 0 8px; font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--warn-text); }
+.needs ul { margin: 0 0 16px; padding-left: 20px; }
+.needs li { margin-bottom: 8px; }
+.independent { margin-top: 20px; font-weight: 600; }
+
+footer { border-top: 1px solid var(--border); background: var(--panel); font-size: 15px; color: var(--muted); }
+footer .wrap { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 24px; padding-top: 22px; padding-bottom: 22px; }
+footer nav { display: flex; flex-wrap: wrap; gap: 8px 20px; }
+footer a { color: var(--text); }
+.openyard { display: inline-flex; align-items: center; gap: 8px; }
+.openyard img { width: 20px; height: 20px; }
+
+@media (max-width: 600px) {
+  body { font-size: 16px; }
+  .wrap, .wrap-wide { padding: 0 16px; }
+  .topbar nav { gap: 14px; }
+  .hero { padding-top: 40px; padding-bottom: 28px; }
+  h2 { font-size: 24px; }
+  section.block { padding: 48px 0; }
+  .card { padding: 18px 18px 8px; }
+  .needs { padding: 20px 18px 8px; }
+  .steps > li { padding-left: 42px; }
+  pre { font-size: 13px; padding: 12px; }
+}
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="topbar">
+  <div class="wrap">
+    <a class="brand" href="index.html" aria-label="aolangai home">
+      <svg viewBox="0 0 100 100" aria-hidden="true"><rect x=".75" y=".75" width="98.5" height="98.5" rx="21.75" fill="#fbefe4" stroke="#e5cfbc" stroke-width="1.5"/><rect x="34" y="16" width="50" height="38" rx="7" fill="#f5c6a2"/><rect x="26" y="27" width="50" height="38" rx="7" fill="#e5814f"/><rect x="18" y="38" width="50" height="40" rx="7" fill="#2b201b"/><path d="M43 38 L43 31" stroke="#2b201b" stroke-width="4" stroke-linecap="round"/><circle cx="43" cy="27" r="5" fill="#ff9a55"/><rect x="31.5" y="50" width="7" height="13" rx="3.5" fill="#fff"/><rect x="47.5" y="50" width="7" height="13" rx="3.5" fill="#fff"/></svg>
+      aolangai
+    </a>
+    <nav aria-label="Page">
+      <a href="#demo">Demo</a>
+      <a href="#install">Install</a>
+      <a href="https://github.com/openyard-cloud/aolangai">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+  <div class="wrap hero">
+    <p class="eyebrow">For people with more than one Claude subscription account on one Mac</p>
+    <h1>aolangai</h1>
+    <p class="lead">See every account's quota and the Claude Code sessions open on your Mac, in one window and in the menu bar. When a Claude Code session has work to hand off, the <code>aolangai</code> command sends it to the account with the most quota left.</p>
+    <div class="actions">
+      <a class="button primary" href="#demo">Try the demo</a>
+      <a class="button" href="https://github.com/openyard-cloud/aolangai"><svg viewBox="0 0 16 16" aria-hidden="true" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>GitHub</a>
+    </div>
+    <p class="facts">macOS on Apple silicon · build from source · MIT</p>
+  </div>
+
+  <section class="demo" id="demo" aria-labelledby="demo-title">
+    <div class="wrap-wide">
+      <h2 id="demo-title">Demo</h2>
+      <div class="live">
+        <div class="window">
+          <div class="titlebar"><div class="lights" aria-hidden="true"><i></i><i></i><i></i></div><span aria-hidden="true">aolangai</span></div>
+          <div class="view" id="view">
+            <iframe id="frame" title="aolangai demo: the app's window with sample data" data-src="demo/index.html" loading="lazy" tabindex="-1"></iframe>
+            <button class="cover" id="cover" type="button" aria-label="Click to use the demo; press Escape to leave it"><span>Click to use the demo</span></button>
+          </div>
+        </div>
+        <div class="caption">
+          <p>This is the app's real window, running on invented accounts and runs. Nothing in it talks to Claude or to your machine. Buttons that need a real Mac say in the bar at the top what they would do. Press Escape to leave the demo.</p>
+          <a href="demo/index.html">Open the demo on its own page</a>
+        </div>
+      </div>
+      <div class="still">
+        <div class="window">
+          <div class="titlebar"><div class="lights" aria-hidden="true"><i></i><i></i><i></i></div><span aria-hidden="true">aolangai</span></div>
+          <img src="overview.png" width="1440" height="800" loading="lazy" alt="The aolangai window with sample data: the Side project, Work and Personal accounts, each with quota bars and open sessions; Side project and Work list recent delegated runs, Personal has none yet and is over its reserve">
+        </div>
+        <p class="still-note">The live demo needs a screen at least 900 pixels wide; this is its main screen, with the same sample data. <a href="demo/index.html">Open the demo anyway</a></p>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" id="features" aria-labelledby="features-title">
+    <div class="wrap split">
+      <h2 id="features-title">What it does</h2>
+      <div class="cards">
+        <article class="card">
+          <h3>Every account's quota in one place</h3>
+          <p>Each account's lane has its quota bars: 5 hours, week, and per model when there is one, updated every minute. The menu bar has a quota line per account. <b>Needs you</b> collects runs that failed, hit a limit or had a permission denied, and accounts over their reserve.</p>
+        </article>
+        <article class="card">
+          <h3>Open sessions, per account</h3>
+          <p>Every 10 seconds the app lists the Claude Code sessions open on the Mac and shows each on its account's lane, with <b>Switch to</b> to bring its Terminal tab or app to the front. <span class="limit"><b>Switch to</b> and the session names use Terminal automation that is not yet confirmed by a person on the packaged app.</span></p>
+        </article>
+        <article class="card">
+          <h3>Carry on with another account</h3>
+          <p>When the account you work in runs out of quota, <b>Open Terminal</b> on another lane opens Terminal in a folder you pick, running <code>claude</code> on that account. The session is yours, not a delegated run. <span class="limit">The Terminal automation is covered by tests but not yet confirmed by a person on the packaged app.</span></p>
+        </article>
+        <article class="card">
+          <h3>Delegate work from Claude Code</h3>
+          <p>Ask Claude Code to delegate work to a subagent, to move work to another account or to spread tokens across your accounts, and the <code>aolangai</code> skill has it call the command instead of starting its own subagent. The work runs on the account with the most quota left among those <b>Accepting work</b>; the result comes back to the session. <span class="limit">Used for real from Claude Code in a terminal only; from Claude desktop it is not verified yet.</span></p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" id="privacy" aria-labelledby="privacy-title">
+    <div class="wrap split">
+      <h2 id="privacy-title">Private by design</h2>
+      <div>
+      <ul class="points measure">
+        <li>The only <code>claude</code> it runs is the one you installed. Logging in goes through Claude's own <code>claude auth login</code>; aolangai never reads, stores or forwards a login token, and does not touch the Keychain.</li>
+        <li>In an account's config dir it touches only <code>settings.json</code>, to open it for you, and its own skill file. A file it did not create is never overwritten.</li>
+        <li>To find open sessions it lists processes with <code>ps</code> and keeps the <code>claude</code> ones of your macOS user. It reads their environment, except for Claude desktop sessions, and uses exactly one value from it, <code>CLAUDE_CONFIG_DIR</code>; for three credential variable names it only checks whether the name is present. It also reads each session's working folder (with <code>lsof</code>) and, from Terminal, the tab's tty and title.</li>
+        <li>The app sends nothing anywhere itself. The only network use is the <code>claude</code> you installed, under your own login: asking for quota, checking that an account is logged in, doing the work you delegate, and the Terminal sessions it opens for you.</li>
+      </ul>
+      <p><a href="privacy.html">What the app reads and writes, in full</a></p>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" id="terms" aria-labelledby="terms-title">
+    <div class="wrap split">
+      <div class="spacer" aria-hidden="true"></div>
+      <div class="needs measure">
+        <span class="tag">Read before you install</span>
+        <h2 id="terms-title">Before you use more than one account</h2>
+        <ul>
+          <li>Splitting load across several Claude subscription accounts is a gray area under Anthropic's terms, and you carry the risk.</li>
+          <li>There are second-hand reports from February 2026 that Anthropic does not allow subscription logins in third-party tools, and that people using several accounts were locked out. These reports are not verified first-hand.</li>
+          <li>The quota numbers come from an experimental call of the Claude Agent SDK, which may change or disappear in a later SDK version.</li>
+          <li>Read Anthropic's current <a href="https://www.anthropic.com/legal/consumer-terms">Consumer Terms</a> before you rely on this tool or share it.</li>
+        </ul>
+        <p>What aolangai never does: log in for you (logging in goes through Claude's own <code>claude auth login</code>), read, store or forward a login token, or run any <code>claude</code> but the one you installed.</p>
+        <p class="independent">aolangai is an independent open-source project. It is not affiliated with or endorsed by Anthropic.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" id="install" aria-labelledby="install-title">
+    <div class="wrap split">
+      <h2 id="install-title">Install</h2>
+      <div>
+      <p class="intro measure">There is no download. The app is ad-hoc signed for the Mac that builds it, so you build it yourself from the repository.</p>
+      <ol class="steps measure">
+        <li>
+          <h3>Check the requirements</h3>
+          <ul>
+            <li>macOS on Apple silicon.</li>
+            <li>Claude Code (<code>claude</code>) installed, with at least one Claude subscription account logged in. A <code>claude</code> installed under a Node version manager (nvm, fnm, volta, asdf) is not found by the app; the <a href="https://github.com/openyard-cloud/aolangai/blob/main/docs/reference.md#install-and-setup">reference</a> says what to do.</li>
+            <li><code>git</code> (on a clean Mac: <code>xcode-select --install</code>).</li>
+            <li>Node 22.13 or newer, only to build. The built app does not need Node.</li>
+          </ul>
+        </li>
+        <li>
+          <h3>Build the app</h3>
+<pre><code>git clone https://github.com/openyard-cloud/aolangai.git
+cd aolangai
+npm install
+npm run dist</code></pre>
+        </li>
+        <li>
+          <h3>Move it to Applications and open it</h3>
+          <p>Drag <code>apps/desktop/release/mac-arm64/aolangai.app</code> into Applications and open it. Each time it opens, it installs the skill and the command <code>~/.local/bin/aolangai</code>. Closing the window leaves it in the menu bar.</p>
+        </li>
+        <li>
+          <h3>Follow the setup card</h3>
+          <p>A card at the top of the window walks you through adding your accounts in <b>Settings → Accounts</b>, logging each one in, and turning on <b>Accepting work</b> for the accounts that should take runs. <b>Log in</b> opens Terminal; the first time the app drives Terminal, macOS asks whether aolangai may control it. <span class="limit">This Terminal automation is not yet confirmed by a person on the packaged app.</span></p>
+        </li>
+      </ol>
+      <p class="measure">The <a href="https://github.com/openyard-cloud/aolangai#install">README</a> has the full guide: setup, the command, updating and uninstalling.</p>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <a class="openyard" href="https://openyard.cloud"><img src="openyard.svg" alt="">Part of OpenYard</a>
+    <nav aria-label="Footer">
+      <a href="https://github.com/openyard-cloud/aolangai">GitHub</a>
+      <a href="privacy.html">Privacy</a>
+      <a href="https://github.com/openyard-cloud/aolangai/blob/main/LICENSE">MIT license</a>
+    </nav>
+  </div>
+</footer>
+
+<script>
+// The demo frame: the app's window is laid out for a desktop, so it is drawn at WIDTH x HEIGHT and scaled down to
+// fit the column. It loads only on a wide screen (a narrow one shows the picture). Until it is clicked, a cover
+// lets the wheel scroll the page instead of the demo; the cover comes back when the pointer or the focus leaves,
+// and Escape leaves the demo.
+(() => {
+  const WIDTH = 1180, HEIGHT = 820;
+  const view = document.getElementById("view");
+  const frame = document.getElementById("frame");
+  const cover = document.getElementById("cover");
+  const wide = matchMedia("(min-width: 900px)");
+
+  const fit = () => {
+    if (!view.clientWidth) return;
+    const scale = Math.min(1, view.clientWidth / WIDTH);
+    frame.style.transform = `scale(${scale})`;
+    view.style.height = `${Math.round(HEIGHT * scale)}px`;
+  };
+  const load = () => { if (wide.matches && !frame.getAttribute("src")) frame.src = frame.dataset.src; };
+  const setActive = (on) => view.classList.toggle("active", on);
+
+  new ResizeObserver(fit).observe(view);
+  wide.addEventListener("change", load);
+  load();
+  fit();
+
+  cover.addEventListener("click", () => {
+    setActive(true);
+    frame.focus();
+    try { frame.contentWindow.focus(); } catch {}
+  });
+  view.addEventListener("mouseleave", () => setActive(false));
+
+  // Escape leaves the demo and puts the focus back on the cover. Key events inside the frame go to the frame's own
+  // document, never to this one, so the listener is added on the frame's window once it has loaded (same origin).
+  // An Escape while the app has a panel open (run detail) is left to the app, which closes the panel with it.
+  const onKey = (e) => {
+    if (e.key !== "Escape" || e.defaultPrevented) return;
+    if (frame.contentDocument?.querySelector(".overlay")) return;
+    setActive(false);
+    cover.focus();
+  };
+  frame.addEventListener("load", () => {
+    try { frame.contentWindow.addEventListener("keydown", onKey, true); } catch {}
+  });
+  // Focus back on this page (a click or a Tab out of the demo) brings the cover back unless the pointer is on the demo.
+  addEventListener("focus", () => { if (!view.matches(":hover")) setActive(false); });
+})();
+</script>
+</body>
+</html>

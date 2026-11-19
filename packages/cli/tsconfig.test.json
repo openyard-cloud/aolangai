@@ -1,0 +1,10 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "composite": false,
+    "declaration": false,
+    "noEmit": true,
+    "paths": { "@aolangai/core": ["../core/src/index.ts"] }
+  },
+  "include": ["src"]
+}

@@ -1,0 +1,52 @@
+# Packages the app for the Mac that builds it: an arm64 aolangai.app in release/mac-arm64, ad-hoc signed, nothing uploaded.
+# Docs (v26): https://github.com/electron-userland/electron-builder/tree/release/v26/website/docs (contents.md, mac.md,
+# file-patterns.md, features/code-signing/code-signing-mac.md).
+appId: app.aolangai.desktop
+productName: aolangai
+directories:
+  output: release
+
+# The app itself: the electron-vite output, plus the one package the main bundle imports at run time (core is inlined,
+# the renderer is fully bundled, so the other production dependencies are not needed). Leaving out the rest also leaves
+# out the SDK's platform packages, which carry a bundled `claude`: the app always runs the one the user installed.
+files:
+  - out/**
+  - "!node_modules/**"
+  - node_modules/@anthropic-ai/claude-agent-sdk/**
+npmRebuild: false
+
+# `npm run dist` deletes packages/*/dist first, so only what the sources build can be copied here; `testing/**` holds
+# test doubles that never ship.
+# The `aolangai` command as real files in Contents/Resources/cli, in the CLI package's own shape (install finds
+# skill/SKILL.md and dist/index.js relative to its own file), with the runtime packages it imports beside it.
+extraResources:
+  - from: ../../packages/cli/package.json
+    to: cli/package.json
+  - from: ../../packages/cli/dist
+    to: cli/dist
+    filter: ["**/*.js", "!**/*.test.js", "!testing/**"]
+  - from: ../../packages/cli/skill
+    to: cli/skill
+  - from: ../../packages/core/package.json
+    to: cli/node_modules/@aolangai/core/package.json
+  - from: ../../packages/core/dist
+    to: cli/node_modules/@aolangai/core/dist
+    filter: ["**/*.js", "!**/*.test.js", "!testing/**"]
+  - from: ../../node_modules/@anthropic-ai/claude-agent-sdk
+    to: cli/node_modules/@anthropic-ai/claude-agent-sdk
+
+mac:
+  # Made from build/icon.svg by scripts/icons.sh.
+  icon: build/icon.icns
+  target:
+    - target: dir
+      arch: arm64
+  # null: electron-builder skips signing and never looks in the keychain; the afterPack hook signs ad-hoc instead.
+  identity: null
+  notarize: false
+  # Without this key macOS refuses osascript's request to control Terminal (login, Open Terminal, session names) from an
+  # app opened in Finder, without asking.
+  extendInfo:
+    NSAppleEventsUsageDescription: "aolangai opens Terminal to log in, to start Claude Code sessions and to read session names."
+afterPack: ./scripts/adhoc-sign.mjs
+publish: null
