@@ -213,13 +213,70 @@ describe("run", () => {
     expect(repos.runs.get(1)?.status).toBe("failed");
   });
 
-  it("a limit hit mid-run: exit 3, the account is blocked", async () => {
-    script({ lines: [init("s1"), { type: "result", subtype: "success", is_error: true, result: "You've hit your limit · resets 3pm", session_id: "s1" }] });
+  const LIMIT = { lines: [init("s1"), { type: "result", subtype: "success", is_error: true, result: "You've hit your limit · resets 3pm", session_id: "s1" }] };
+  const MOVING = (n: number, name: string) => `[aolangai] run #${n} stopped because account ${name} hit its limit. Moving the task to another account.\n`;
+  const NOT_TAKEN = (n: number, name: string) => `[aolangai] run #${n} stopped because account ${name} hit its limit. No other account took it over.\n`;
+
+  it("a limit hit mid-run with no other account: exit 3, the account is blocked, the reasons are printed", async () => {
+    script(LIMIT);
     const r = await cli(["run", "x"]);
     expect(r.code).toBe(3);
     expect(r.stdout).toBe("");
-    expect(r.stderr).toContain("[aolangai] run #1 stopped because account Claude A hit its limit. Retry to run on another account.\n");
+    expect(r.stderr).toContain(MOVING(1, "Claude A"));
+    expect(r.stderr).toMatch(/No account can take this run\n- Claude A: limited until /);
+    expect(r.stderr.endsWith(NOT_TAKEN(1, "Claude A"))).toBe(true);
     expect(repos.runs.get(1)?.status).toBe("limited");
+    expect(repos.runs.recent(10)).toHaveLength(1);
+  });
+
+  it("a limit hit mid-run moves the task to the next account, in a new session, told to check the folder first", async () => {
+    const dirB = path.join(work, "cfg-b");
+    account("b", { configDir: dirB });
+    script({ byConfigDir: { "": LIMIT, [dirB]: { lines: [init("s2"), text("finishing"), result("s2", "done on B")] } } });
+    const r = await cli(["run", "add tests", "--label", "tests"]);
+    expect(r.code).toBe(0);
+    expect(r.stdout).toBe("done on B\n");
+    expect(r.stderr).toBe(
+      "[aolangai] run #1 · account Claude A · new session\n" + MOVING(1, "Claude A") + "[aolangai] run #2 · account Claude B · new session\n",
+    );
+    const [first, second] = [repos.runs.get(1)!, repos.runs.get(2)!];
+    expect(first.status).toBe("limited");
+    expect(repos.status.get("a")?.limit).toBeDefined();
+    expect(second).toMatchObject({ status: "done", accountId: "b", retryOf: 1, label: "tests", prompt: "add tests" });
+    const log = JSON.parse(fs.readFileSync(logFile, "utf8"));
+    expect(log.env.CLAUDE_CONFIG_DIR).toBe(dirB);
+    expect(log.stdin).toMatch(/^This task was started by another worker, on another account, which hit its usage limit/);
+    expect(log.stdin).toMatch(/git status/);
+    expect(log.stdin.endsWith("\n\n---\n\nadd tests")).toBe(true);
+  });
+
+  it("a task moves at most twice, so at most three accounts are tried", async () => {
+    for (const id of ["b", "c", "d"]) account(id, { configDir: path.join(work, `cfg-${id}`) });
+    script(LIMIT);
+    const r = await cli(["run", "x"]);
+    expect(r.code).toBe(3);
+    expect(repos.runs.recent(10).map((x) => [x.id, x.accountId, x.status, x.retryOf])).toEqual([
+      [3, "c", "limited", 2],
+      [2, "b", "limited", 1],
+      [1, "a", "limited", undefined],
+    ]);
+    expect(r.stderr).toContain(MOVING(1, "Claude A"));
+    expect(r.stderr).toContain(MOVING(2, "Claude B"));
+    expect(r.stderr.endsWith(NOT_TAKEN(3, "Claude C"))).toBe(true);
+    expect(repos.status.get("d")?.limit).toBeUndefined();
+  });
+
+  it("--no-failover and --account keep the task on the account that hit its limit", async () => {
+    account("b", { configDir: path.join(work, "cfg-b") });
+    script(LIMIT);
+    const off = await cli(["run", "x", "--no-failover"]);
+    expect(off.code).toBe(3);
+    expect(off.stderr).not.toContain("Moving the task");
+    expect(off.stderr.endsWith(NOT_TAKEN(1, "Claude A"))).toBe(true);
+    const named = await cli(["run", "y", "--account", "claude b"]);
+    expect(named.code).toBe(3);
+    expect(named.stderr).not.toContain("Moving the task");
+    expect(repos.runs.recent(10).map((x) => x.accountId)).toEqual(["b", "a"]);
   });
 
   it("--retry-of fills retryOf; a bad value exits 2", async () => {

@@ -6,7 +6,7 @@ import {
   duration,
   failedLine,
   goneLine,
-  limitedLine,
+  failoverLine, limitedLine,
   notRunningLine,
   refusalLines,
   signalledAllLine,
@@ -78,7 +78,8 @@ describe("run lines", () => {
   it("failed, limited, stopped", () => {
     expect(failedLine(14, "Timed out after 30 minutes")).toBe("[aolangai] run #14 failed: Timed out after 30 minutes");
     expect(failedLine(14, "line 1\n  line 2\r\nline 3")).toBe("[aolangai] run #14 failed: line 1 line 2 line 3");
-    expect(limitedLine(14, "Claude B")).toBe("[aolangai] run #14 stopped because account Claude B hit its limit. Retry to run on another account.");
+    expect(limitedLine(14, "Claude B")).toBe("[aolangai] run #14 stopped because account Claude B hit its limit. No other account took it over.");
+    expect(failoverLine(14, "Claude B")).toBe("[aolangai] run #14 stopped because account Claude B hit its limit. Moving the task to another account.");
     expect(stoppedLine(14)).toBe("[aolangai] run #14 stopped");
   });
 });

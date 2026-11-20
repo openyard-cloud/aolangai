@@ -51,7 +51,7 @@ The details behind the [README](../README.md). Account names below (`Personal`, 
 
 ```
 Usage:
-  aolangai run "<prompt>" | -  [--cwd <folder>] [--label <label>] [--account <name>] [--new] [--read-only]
+  aolangai run "<prompt>" | -  [--cwd <folder>] [--label <label>] [--account <name>] [--new] [--read-only] [--no-failover]
   aolangai status [--json]
   aolangai stop <run number> | --all
   aolangai install [--check]
@@ -63,7 +63,7 @@ Usage:
   install  install the skill for Claude Code (~/.claude/skills/aolangai) and the command ~/.local/bin/aolangai;
            --check only prints the status and writes nothing.
 
-Exit codes: 0 done · 1 run failed · 2 refused or bad usage · 3 account hit its limit mid-run · 130 stopped
+Exit codes: 0 done · 1 run failed · 2 refused or bad usage · 3 limit hit mid-run, no account took it over · 130 stopped
 ```
 
 Every command also takes `--help` (or `-h`). Lines that start with `[aolangai] ` go to stderr. Stdout carries only the worker's answer (with the denials paragraph) and the output of `status` and `install --check`.
@@ -86,6 +86,7 @@ PROMPT
 | `--account <name>` | Run on this account. The name is matched ignoring case and surrounding spaces. Skips the quota comparison and the reserve, but not the other exclusions (see [How an account is chosen](#how-an-account-is-chosen)). No match: `No account named "Z"`; several matches: `Several accounts are named "Z", cannot tell which to use`. |
 | `--new` | Open a new session instead of continuing the folder's worker session. |
 | `--read-only` | Remove the `Edit`, `Write`, `NotebookEdit` and `Bash` tools from the session, for reading and analysis. |
+| `--no-failover` | When the account hits its limit mid-run, stop there (exit code 3) instead of moving the task to another account. See [When an account hits its limit](#when-an-account-hits-its-limit). |
 | `--retry-of <run number>` | Not in the help text. The app's **Retry** passes it; the new run shows `Retry of #N` in the app, and the old run leaves Needs you. |
 
 The prompt is one argument. `-` alone reads it from stdin. A prompt that starts with `-` needs `--` before it (after `--`, a lone `-` is text, not stdin). An empty prompt is refused: `The prompt is empty`.
@@ -97,7 +98,8 @@ The prompt is one argument. `-` alone reads it from stdin. A prompt that starts 
   - `Using old quota numbers from 13:40`, `Using old quota numbers, age unknown`: the quota could not be refreshed in time.
   - `No quota numbers for this account`: the chosen account has no numbers yet (for example with `--account`).
 - On stdout, when the run is done: the worker's answer, then, if commands were refused, a paragraph `[aolangai] Permission denied: Bash(npm run migrate)` (several are joined with `; `). The exit code is still 0.
-- On stderr, when the run did not finish normally: `[aolangai] run #14 failed: <error>`, `[aolangai] run #14 stopped because account Work hit its limit. Retry to run on another account.`, or `[aolangai] run #14 stopped`.
+- On stderr, when the account hits its limit and the task moves on: `[aolangai] run #14 stopped because account Work hit its limit. Moving the task to another account.`, then the start line of the next run.
+- On stderr, when the run did not finish normally: `[aolangai] run #14 failed: <error>`, `[aolangai] run #14 stopped because account Work hit its limit. No other account took it over.` (after the reasons each account was left out, when there were any), or `[aolangai] run #14 stopped`.
 - On stderr, when the run is refused before it starts:
   - `[aolangai] A worker cannot delegate further`
   - `[aolangai] 4 runs in progress (maximum 4)`
@@ -169,7 +171,7 @@ The stopped run's own `aolangai run` exits with code 130. **Stop** and **Stop al
 | 0 | Done; the result is on stdout. |
 | 1 | The run failed (including a timeout); read stderr. An unexpected internal error (`[aolangai] Unexpected error: …`) is also code 1, and then no run was started. |
 | 2 | Refused before running, or bad usage: missing or empty prompt, unknown flag, the `--cwd` folder does not exist or is not a folder, `--account` matches no account or several, no account can take the run, a guard was reached, a nested delegation, `claude` not found, the command's own process info unreadable. For `stop`: no run with that number. |
-| 3 | The account hit its limit mid-run; retry to run on another account. |
+| 3 | The account hit its limit mid-run and no other account took the task over: none could take it, it already moved twice, or `--account` or `--no-failover` was given. |
 | 130 | The run was stopped (`stop`, **Stop** in the app, or a signal sent to the command: SIGINT, SIGTERM or SIGHUP). |
 
 `install` exits with 0 when done. With `--check` it exits with 0 whatever the states it prints, including `foreign`. Without `--check` it exits with 1 when a file could not be written, and with 2 when a file is not aolangai's. With or without `--check`, it exits with 2 when the package's own `skill/SKILL.md` or its built `dist/index.js` is missing.
@@ -204,6 +206,14 @@ The numbers below are the defaults; change them in **Settings → Limits** (see 
 If no account is left, `run` exits with code 2 and prints why each account was left out. aolangai never runs on an account that is **Watch only**.
 
 Open sessions and the Claude desktop assignment play no part in the choice, and do not count toward the runs-at-once guard.
+
+## When an account hits its limit
+
+When the worker's account hits a usage limit mid-run, `run` marks the account as limited and moves the task to the account that would now be chosen, as a retry of the run that stopped (it shows `Retry of #N` in the app, and the stopped run leaves Needs you).
+
+- The new run opens a new session: a session belongs to one account and cannot continue under another. Before the task, the worker reads that another worker started it and stopped at a limit, and that it should look at the folder's state first (for example `git status` and `git diff`), keep what is done and correct, and finish the rest. The run's prompt in the app and in `status` stays the one you gave.
+- A task moves at most twice, so at most three accounts work on it. If no account can take it, `run` prints the reason for each account and exits with code 3.
+- `--account <name>` and `--no-failover` turn this off: the run stops at the limit with code 3. The app's **Retry** moves the task the same way as `run`.
 
 ## The worker
 
@@ -356,7 +366,7 @@ The README names a few of these; this is the complete list.
 Delegated runs:
 
 - A worker cannot ask for approval in the middle of a run. A command that was not allowed beforehand is refused and recorded.
-- A run that hits a limit mid-run does not move to another account by itself. It exits with code 3 and marks the account as limited; **Retry** sends it to another account.
+- A task that moves to another account after a limit starts a new session there. The next worker gets the folder as the last one left it, not its conversation, and is told to check the folder's state first. Work the stopped worker had not written to a file is lost.
 - The shape of `claude -p`'s limit error is inferred from the Agent SDK's types, not observed. If it is recognized wrongly, a run that hit a limit may show as failed (code 1) instead of code 3.
 - There is no folder lock between workers. When a run is already in progress in the same folder, a new one still starts, but its `[aolangai] run #N …` line on stderr (and its note in the app) adds `Also running in this folder: #3`. Keeping two runs off the same file is up to the main session.
 - A session opened with **Open in Terminal** and left open can still be continued by the next run delegated to the same account and folder within 60 minutes; then two processes write to one session. Close that Terminal first, or delegate the next run with `--new`.

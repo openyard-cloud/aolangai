@@ -10,7 +10,7 @@
 
 - **One window for every account.** Quota bars and the Claude Code sessions open on your Mac, in the app and in the menu bar.
 - **Another account when one runs out.** **Open Terminal** starts Claude Code on the account you pick.
-- **Delegate.** Tell Claude to "delegate this to a subagent", and the `aolangai` command runs the work on the account with the most quota left, so it stops draining the one you are using.
+- **Delegate.** Tell Claude to "delegate this to a subagent", and the `aolangai` command runs the work on the account with the most quota left, so it stops draining the one you are using. If that account hits its limit mid-task, the task moves to the next account by itself.
 
 aolangai is an independent open-source project. It is not affiliated with or endorsed by Anthropic.
 
@@ -85,7 +85,7 @@ The [reference](docs/reference.md) has the rest: [the command](docs/reference.md
 
 ## Tiếng Việt
 
-aolangai dành cho ai có nhiều account Claude thuê bao trên cùng một máy Mac: xem quota của mọi account và các session Claude Code đang mở trong một cửa sổ, và cho session Claude Code giao việc sang account còn nhiều quota nhất. Cách cài: chạy các lệnh ở mục Install (cần Node 22.13 trở lên), kéo `aolangai.app` vào Applications, mở app và làm theo thẻ thiết lập. Giao diện bằng tiếng Anh. Nhớ đọc mục "Read this first" trước khi dùng.
+aolangai dành cho ai có nhiều account Claude thuê bao trên cùng một máy Mac: xem quota của mọi account và các session Claude Code đang mở trong một cửa sổ, và cho session Claude Code giao việc sang account còn nhiều quota nhất. Account nào hết quota giữa chừng thì việc tự chuyển sang account kế tiếp. Cách cài: chạy các lệnh ở mục Install (cần Node 22.13 trở lên), kéo `aolangai.app` vào Applications, mở app và làm theo thẻ thiết lập. Giao diện bằng tiếng Anh. Nhớ đọc mục "Read this first" trước khi dùng.
 
 ## License
 

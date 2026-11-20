@@ -8,12 +8,13 @@ import {
   findExecutable,
   processStart,
   usedPct,
+  type DispatchRequest,
   type Repos,
   type Run,
   type UsageFetch,
 } from "@aolangai/core";
 import type { Io } from "../io.js";
-import { PREFIX, doneStdout, failedLine, limitedLine, refusalLines, startLine, stoppedLine } from "../output.js";
+import { PREFIX, doneStdout, failedLine, failoverLine, limitedLine, refusalLines, startLine, stoppedLine } from "../output.js";
 
 export interface RunOptions {
   prompt: string;
@@ -24,7 +25,21 @@ export interface RunOptions {
   fresh: boolean;
   readOnly: boolean;
   retryOf?: number;
+  /** Move a run that hits its account's limit to another account. Off with --no-failover; never with --account. */
+  failover: boolean;
 }
+
+/** How many times one task moves to another account after a limit. */
+export const MAX_FAILOVERS = 2;
+
+/**
+ * What the worker on the next account reads before the task. It starts a new session: the files are all it gets
+ * from the run that stopped.
+ */
+export const FAILOVER_PREAMBLE =
+  "This task was started by another worker, on another account, which hit its usage limit before it finished. " +
+  "This folder may already hold part of that work. Look at its current state first (for example `git status` and " +
+  "`git diff`), keep what is done and correct, and finish the rest.\n\n---\n\n";
 
 export interface RunContext {
   repos: Repos;
@@ -98,9 +113,8 @@ export async function runCommand(o: RunOptions, c: RunContext): Promise<number> 
     fetch = (a, signal) => ask(a, AbortSignal.any([signal, abort.signal]));
   }
 
-  let run: Run;
-  try {
-    run = await dispatch(
+  const attempt = (over: Partial<DispatchRequest>) =>
+    dispatch(
       {
         repos,
         claudePath,
@@ -118,13 +132,35 @@ export async function runCommand(o: RunOptions, c: RunContext): Promise<number> 
           }
         },
       },
-      { prompt, cwd: o.cwd ?? process.cwd(), label: o.label || undefined, account: o.account, fresh: o.fresh, readOnly: o.readOnly, retryOf: o.retryOf },
+      { prompt, cwd: o.cwd ?? process.cwd(), label: o.label || undefined, account: o.account, fresh: o.fresh, readOnly: o.readOnly, retryOf: o.retryOf, ...over },
     );
-  } catch (e) {
+  const refused = (e: unknown) => {
     if (!(e instanceof DispatchRefused)) throw e;
     const detail = (id: string) => ({ usedPct: usedPct(repos.status.get(id)), reservePct: repos.accounts.get(id)?.reservePct ?? 90 });
     io.err(refusalLines(e.code, e.message, e.exclusions, detail, repos.settings.getLimits(), Date.now()).join("\n") + "\n");
+  };
+  const accountName = (r: Run) => repos.accounts.get(r.accountId)?.name ?? r.accountId;
+
+  let run: Run;
+  try {
+    run = await attempt({});
+  } catch (e) {
+    refused(e);
     return 2;
+  }
+
+  // The account that hit its limit is now marked limited, so the next choice leaves it out. The new run is a retry
+  // of the one that stopped, in a new session, and the app takes the stopped one out of Needs you.
+  const failover = o.failover && o.account === undefined;
+  for (let moves = 0; failover && run.status === "limited" && moves < MAX_FAILOVERS && !abort.signal.aborted; moves++) {
+    io.err(failoverLine(run.id, accountName(run)) + "\n");
+    try {
+      run = await attempt({ retryOf: run.id, fresh: true, preamble: FAILOVER_PREAMBLE });
+    } catch (e) {
+      refused(e);
+      io.err(limitedLine(run.id, accountName(run)) + "\n");
+      return 3;
+    }
   }
 
   switch (run.status) {
@@ -132,7 +168,7 @@ export async function runCommand(o: RunOptions, c: RunContext): Promise<number> 
       io.out(doneStdout(run.result, run.denials));
       return 0;
     case "limited":
-      io.err(limitedLine(run.id, repos.accounts.get(run.accountId)?.name ?? run.accountId) + "\n");
+      io.err(limitedLine(run.id, accountName(run)) + "\n");
       return 3;
     case "stopped":
       io.err(stoppedLine(run.id) + "\n");

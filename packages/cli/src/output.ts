@@ -6,7 +6,7 @@ import { limitedUntil, usedPct, type Account, type AccountStatus, type Exclusion
 export const PREFIX = "[aolangai] ";
 
 export const USAGE = `Usage:
-  aolangai run "<prompt>" | -  [--cwd <folder>] [--label <label>] [--account <name>] [--new] [--read-only]
+  aolangai run "<prompt>" | -  [--cwd <folder>] [--label <label>] [--account <name>] [--new] [--read-only] [--no-failover]
   aolangai status [--json]
   aolangai stop <run number> | --all
   aolangai install [--check]
@@ -18,7 +18,7 @@ export const USAGE = `Usage:
   install  install the skill for Claude Code (~/.claude/skills/aolangai) and the command ~/.local/bin/aolangai;
            --check only prints the status and writes nothing.
 
-Exit codes: 0 done · 1 run failed · 2 refused or bad usage · 3 account hit its limit mid-run · 130 stopped
+Exit codes: 0 done · 1 run failed · 2 refused or bad usage · 3 limit hit mid-run, no account took it over · 130 stopped
 `;
 
 const two = (n: number) => String(n).padStart(2, "0");
@@ -62,7 +62,9 @@ export function doneStdout(result: string | undefined, denials: string[] | undef
 
 export const failedLine = (runId: number, error: string) => `${PREFIX}run #${runId} failed: ${oneLine(error)}`;
 export const limitedLine = (runId: number, accountName: string) =>
-  `${PREFIX}run #${runId} stopped because account ${oneLine(accountName)} hit its limit. Retry to run on another account.`;
+  `${PREFIX}run #${runId} stopped because account ${oneLine(accountName)} hit its limit. No other account took it over.`;
+export const failoverLine = (runId: number, accountName: string) =>
+  `${PREFIX}run #${runId} stopped because account ${oneLine(accountName)} hit its limit. Moving the task to another account.`;
 export const stoppedLine = (runId: number) => `${PREFIX}run #${runId} stopped`;
 
 export interface AccountDetail {
