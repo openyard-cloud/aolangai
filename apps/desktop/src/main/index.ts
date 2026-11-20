@@ -14,6 +14,7 @@ import { startMaintenance } from "./maintenance.js";
 import { createNoticeGate, trayQuotaLines, trayTitle } from "./notify.js";
 import { createPick, recentLabel } from "./recent.js";
 import { realExec, scanSessions } from "./sessions.js";
+import { applyShellPath } from "./shell-path.js";
 import { watchStore } from "./watch.js";
 import { initialWindowState, MIN_SIZE, readWindowState, writeWindowState } from "./window-state.js";
 
@@ -79,7 +80,8 @@ function showWindow() {
 
 
 async function main() {
-  await app.whenReady();
+  // Before anything looks for claude or node: started from Finder, the app only has the short PATH of a GUI app.
+  await Promise.all([app.whenReady(), applyShellPath(process.env)]);
   const dbFile = process.env.AOLANGAI_DB ? path.resolve(process.env.AOLANGAI_DB) : path.join(app.getPath("userData"), "aolangai.db");
   let db: Db;
   let pollerDb: Db;

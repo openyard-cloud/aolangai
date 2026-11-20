@@ -48,7 +48,40 @@ export function parsePs(text: string): Proc[] {
   return procs;
 }
 
-const isClaude = (p: Proc) => path.basename(p.comm) === "claude";
+/** Claude Code's own binary: `claude` from the installer or Homebrew, `claude.exe` when npm's copy is started by its real path. */
+const CLAUDE_BINARIES = new Set(["claude", "claude.exe"]);
+const isClaudeBinary = (p: Proc) => CLAUDE_BINARIES.has(path.basename(p.comm));
+const isNode = (p: Proc) => path.basename(p.comm) === "node";
+
+/**
+ * Whether a `node` process is Claude Code, from its command line (`ps -o args=`): older npm releases run as
+ * `node …/bin/claude` or `node …/@anthropic-ai/claude-code/cli.js`, and Claude Code renames its process to `claude`.
+ * Only the program and its first argument are looked at, so a script that merely takes a path with "claude" in it
+ * later on does not count.
+ */
+export function isClaudeCommandLine(args: string): boolean {
+  const [program, script] = args.trim().split(/\s+/);
+  return [program, script].some((t) => t !== undefined && (CLAUDE_BINARIES.has(path.basename(t)) || /\/@anthropic-ai\/claude-code\/cli\.m?js$/.test(t)));
+}
+
+const ARGS_LINE = /^\s*(\d+)\s(.*)$/;
+
+/** The pids among `nodes` whose command line is Claude Code's. Empty when the command lines cannot be read. */
+async function claudeNodes(nodes: Proc[], exec: Exec): Promise<Set<number>> {
+  const found = new Set<number>();
+  if (nodes.length === 0) return found;
+  let text: string | undefined;
+  try {
+    text = await exec("/bin/ps", ["-ww", "-o", "pid=,args=", "-p", nodes.map((p) => p.pid).join(",")]);
+  } catch {
+    text = undefined;
+  }
+  for (const line of (text ?? "").split("\n")) {
+    const m = ARGS_LINE.exec(line);
+    if (m && isClaudeCommandLine(m[2]!)) found.add(Number(m[1]));
+  }
+  return found;
+}
 
 /** Visits the ancestors of `proc`, nearest first, stopping at a missing parent or a loop; stops early when `visit` returns true. */
 function someAncestor(proc: Proc, byPid: Map<number, Proc>, visit: (p: Proc) => boolean): boolean {
@@ -217,8 +250,11 @@ export async function scanSessions({ accounts, excludePids, selfPid, uid, exec, 
   if (procs.length === 0) return undefined;
   // The whole table stays, whoever owns a process: root-owned ancestors such as `login` are needed for the walks below.
   const byPid = new Map(procs.map((p) => [p.pid, p]));
+  const mine = (p: Proc) => uid === undefined || p.uid === uid;
+  const nodeClaudes = await claudeNodes(procs.filter((p) => isNode(p) && mine(p)), exec);
+  const isClaude = (p: Proc) => isClaudeBinary(p) || nodeClaudes.has(p.pid);
   const sessions = [...byPid.values()]
-    .filter((p) => isClaude(p) && (uid === undefined || p.uid === uid) && !excludePids.includes(p.pid) && !someAncestor(p, byPid, (a) => a.pid === selfPid || isClaude(a)))
+    .filter((p) => isClaude(p) && mine(p) && !excludePids.includes(p.pid) && !someAncestor(p, byPid, (a) => a.pid === selfPid || isClaude(a)))
     .map((p) => ({ proc: p, ...hostOf(p, byPid) }))
     .sort((a, b) => a.proc.startedAt - b.proc.startedAt || a.proc.pid - b.proc.pid);
   if (sessions.length === 0) return [];

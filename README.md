@@ -38,7 +38,7 @@ Drag `aolangai.app` from the folder that opens into Applications, and open it. T
 
 - macOS asks whether aolangai may control Terminal. Allow it: the buttons that open Terminal need it.
 - There is no download yet: the app is signed only for the Mac that builds it.
-- A `claude` installed with nvm, fnm, volta or asdf is not found by the app. [How to fix that, and how to update](docs/reference.md#install-and-setup).
+- A `claude` installed with nvm, fnm, volta or asdf is found through your login shell's `PATH`. [Where the app looks, and how to update](docs/reference.md#install-and-setup).
 
 ## Set up
 
