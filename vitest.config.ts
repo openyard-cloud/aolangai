@@ -7,7 +7,7 @@ export default defineConfig({
     alias: { "@aolangai/core": fileURLToPath(new URL("./packages/core/src/index.ts", import.meta.url)) },
   },
   test: {
-    include: ["language.test.ts", "public-tree.test.ts", "packages/*/src/**/*.test.ts", "apps/*/src/**/*.test.ts", "apps/*/demo/**/*.test.ts"],
+    include: ["language.test.ts", "public-tree.test.ts", "site-csp.test.ts", "packages/*/src/**/*.test.ts", "apps/*/src/**/*.test.ts", "apps/*/demo/**/*.test.ts"],
     testTimeout: 15_000,
   },
 });
