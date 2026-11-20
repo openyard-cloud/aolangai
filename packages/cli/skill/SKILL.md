@@ -41,7 +41,7 @@ Exit codes:
 - `0`: done, use stdout as the result.
 - `1`: the run failed or timed out. Read stderr. The worker may have left some files half-edited: check `git status` in `--cwd` before retrying. Do not retry the same run more than once without telling the user.
 - `2`: refused before running, or bad usage. Read the reason on stderr. If the user asked you to delegate, tell them why it was refused and do not do the work yourself unless they say so. If delegating was your own idea, do the work yourself.
-- `3`: the account hit its limit mid-run. Retry exactly once (another account will be chosen).
+- `3`: the run hit a usage limit and no other account could take the task over (aolangai already moves it to another account by itself, up to twice). Do not retry. Tell the user, with the reasons on stderr; the worker may have left part of the work in `--cwd`, so check `git status` there.
 - `130`: the run was stopped on purpose. Do not retry.
 
 ## Status and stop

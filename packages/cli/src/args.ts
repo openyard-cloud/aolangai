@@ -1,7 +1,7 @@
 import { parseArgs } from "node:util";
 
 export type Command =
-  | { cmd: "run"; prompt: string; fromStdin: boolean; cwd?: string; label?: string; account?: string; fresh: boolean; readOnly: boolean; retryOf?: number }
+  | { cmd: "run"; prompt: string; fromStdin: boolean; cwd?: string; label?: string; account?: string; fresh: boolean; readOnly: boolean; retryOf?: number; failover: boolean }
   | { cmd: "status"; json: boolean }
   | { cmd: "stop"; target: number | "all" }
   | { cmd: "install"; check: boolean; skillDir?: string; binDir?: string }
@@ -53,6 +53,7 @@ export function parseCli(argv: string[]): Command {
       account: { type: "string" },
       new: { type: "boolean" },
       "read-only": { type: "boolean" },
+      "no-failover": { type: "boolean" },
       "retry-of": { type: "string" },
       help: { type: "boolean", short: "h" },
     });
@@ -66,7 +67,7 @@ export function parseCli(argv: string[]): Command {
     }
     const prompt = p.positionals[0]!;
     const fromStdin = prompt.value === "-" && !prompt.literal;
-    const cmd: Command = { cmd: "run", prompt: fromStdin ? "" : prompt.value, fromStdin, fresh: p.values.new === true, readOnly: p.values["read-only"] === true };
+    const cmd: Command = { cmd: "run", prompt: fromStdin ? "" : prompt.value, fromStdin, fresh: p.values.new === true, readOnly: p.values["read-only"] === true, failover: p.values["no-failover"] !== true };
     const cwd = str(p.values.cwd);
     const label = str(p.values.label);
     const account = str(p.values.account);

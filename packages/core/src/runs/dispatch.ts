@@ -20,6 +20,8 @@ export interface DispatchRequest {
   fresh?: boolean;
   readOnly?: boolean;
   retryOf?: number;
+  /** Put before the prompt for the worker only; the run row and the app show the prompt as given. */
+  preamble?: string;
 }
 export interface DispatchDeps {
   repos: Repos;
@@ -85,7 +87,7 @@ export async function dispatch(deps: DispatchDeps, req: DispatchRequest): Promis
       claudePath: deps.claudePath,
       account,
       cwd,
-      prompt: req.prompt,
+      prompt: req.preamble ? `${req.preamble}${req.prompt}` : req.prompt,
       runId: run.id,
       resume: plan.resume,
       readOnly: req.readOnly,

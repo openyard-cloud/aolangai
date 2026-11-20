@@ -9,13 +9,13 @@ const err = (argv: string[]) => {
 
 describe("run", () => {
   it("takes the prompt and defaults every flag", () => {
-    expect(parseCli(["run", "do it"])).toEqual({ cmd: "run", prompt: "do it", fromStdin: false, fresh: false, readOnly: false });
+    expect(parseCli(["run", "do it"])).toEqual({ cmd: "run", prompt: "do it", fromStdin: false, fresh: false, readOnly: false, failover: true });
   });
   it("reads each flag", () => {
     expect(
-      parseCli(["run", "x", "--cwd", "/tmp/p", "--label", "add tests", "--account", "Claude B", "--new", "--read-only", "--retry-of", "14"]),
+      parseCli(["run", "x", "--cwd", "/tmp/p", "--label", "add tests", "--account", "Claude B", "--new", "--read-only", "--no-failover", "--retry-of", "14"]),
     ).toEqual({
-      cmd: "run", prompt: "x", fromStdin: false, cwd: "/tmp/p", label: "add tests", account: "Claude B", fresh: true, readOnly: true, retryOf: 14,
+      cmd: "run", prompt: "x", fromStdin: false, cwd: "/tmp/p", label: "add tests", account: "Claude B", fresh: true, readOnly: true, retryOf: 14, failover: false,
     });
   });
   it("accepts flags before the prompt", () => {

@@ -20,6 +20,8 @@ interface Script {
   /** The child keeps our stdout open (inherits it), like a leaked background process would. */
   childInheritsStdout?: boolean;
   ignoreSigterm?: boolean;
+  /** Replaces the script for a worker whose CLAUDE_CONFIG_DIR is the key ("" for the default ~/.claude). */
+  byConfigDir?: Record<string, Script>;
 }
 
 function readStdin(): Promise<string> {
@@ -36,7 +38,8 @@ function write(stream: NodeJS.WriteStream, text: string): Promise<void> {
 }
 
 async function main(): Promise<void> {
-  const script: Script = JSON.parse(process.env.FAKE_CLAUDE_SCRIPT ?? "{}");
+  const all: Script = JSON.parse(process.env.FAKE_CLAUDE_SCRIPT ?? "{}");
+  const script: Script = all.byConfigDir?.[process.env.CLAUDE_CONFIG_DIR ?? ""] ?? all;
   if (script.ignoreSigterm) process.on("SIGTERM", () => {});
   const stdin = await readStdin();
 
