@@ -1,7 +1,7 @@
 import { beforeEach, test, expect } from "vitest";
 import type { Account } from "@aolangai/core";
 import { normalizeConfigDir } from "./accounts.js";
-import { DESKTOP_KIND, OTHER_KIND, TITLE_BACKOFF_MS, accountOf, parseCwds, parsePs, parseTabTitles, realExec, resetTitleBackoff, scanSessions, sessionHost, sessionKind, sessionName, type Exec, type Proc } from "./sessions.js";
+import { DESKTOP_KIND, OTHER_KIND, TITLE_BACKOFF_MS, accountOf, isClaudeCommandLine, parseCwds, parsePs, parseTabTitles, realExec, resetTitleBackoff, scanSessions, sessionHost, sessionKind, sessionName, type Exec, type Proc } from "./sessions.js";
 
 const CLAUDE_BIN = "/Users/x/Library/Application Support/Claude/claude-code/2.1.325/abc/claude.app/Contents/MacOS/claude";
 const TERMINAL_APP = "/System/Applications/Utilities/Terminal.app";
@@ -231,13 +231,16 @@ const LSOF = "p200\nfcwd\nn/Users/x/Projects/a b\np201\nfcwd\nn/Users/x/other\np
 const T0 = Date.UTC(2026, 10, 18, 2, 0, 0);
 beforeEach(() => resetTitleBackoff());
 
-function fakeExec(over: { ps?: string | undefined; eww?: string | undefined; lsof?: string | undefined; osa?: string | undefined } = {}) {
+const ARGS = "  203 node /Users/x/mcp/server.js --stdio";
+
+function fakeExec(over: { ps?: string | undefined; eww?: string | undefined; lsof?: string | undefined; osa?: string | undefined; args?: string | undefined } = {}) {
   const calls: { file: string; args: string[] }[] = [];
   const has = (k: keyof typeof over) => k in over;
   const exec: Exec = async (file, args) => {
     calls.push({ file, args });
     if (file === "/bin/ps" && args[0] === "-axo") return has("ps") ? over.ps : PROCS;
     if (file === "/bin/ps" && args[0] === "eww") return has("eww") ? over.eww : EWW;
+    if (file === "/bin/ps" && args[0] === "-ww") return has("args") ? over.args : ARGS;
     if (file === "/usr/sbin/lsof") return has("lsof") ? over.lsof : LSOF;
     if (file === "/usr/bin/osascript") return over.osa; // the title lookup fails unless a test gives it an answer
     throw new Error(`unexpected command ${file}`);
@@ -455,4 +458,64 @@ test("scanSessions: an exec that throws on the title lookup does not fail the sc
   const out = (await scan(exec))!;
   expect(out.map((s) => s.pid)).toEqual([302, 201, 200]);
   expect(out.every((s) => s.name === undefined)).toBe(true);
+});
+
+// ---- Claude Code installed through npm
+
+test("isClaudeCommandLine: Claude Code run by node, by its process title or by npm's binary; other node scripts are not", () => {
+  expect(isClaudeCommandLine("claude")).toBe(true); // the title Claude Code gives its process
+  expect(isClaudeCommandLine("claude --resume abc")).toBe(true);
+  expect(isClaudeCommandLine("node /Users/x/.nvm/versions/node/v22.13.0/bin/claude")).toBe(true);
+  expect(isClaudeCommandLine("node /opt/homebrew/lib/node_modules/@anthropic-ai/claude-code/cli.js --continue")).toBe(true);
+  expect(isClaudeCommandLine("/usr/local/bin/node /x/node_modules/@anthropic-ai/claude-code/cli.mjs")).toBe(true);
+  expect(isClaudeCommandLine("node /x/node_modules/@anthropic-ai/claude-code/bin/claude.exe")).toBe(true);
+  expect(isClaudeCommandLine("node /Users/x/mcp/server.js --stdio")).toBe(false);
+  expect(isClaudeCommandLine("node /Users/x/claude/server.js")).toBe(false);
+  expect(isClaudeCommandLine("node server.js /Users/x/bin/claude")).toBe(false); // a path that comes later is an argument
+  expect(isClaudeCommandLine("node /x/@anthropic-ai/claude-code/cli.js.map")).toBe(false);
+  expect(isClaudeCommandLine("")).toBe(false);
+});
+
+const NPM_PROCS = [
+  psLine(1, 0, 0, "/sbin/launchd", "??", 0),
+  psLine(100, 1, 1, TERMINAL),
+  psLine(101, 100, 1, "login", "??", 0),
+  psLine(102, 101, 1, "-zsh"),
+  psLine(700, 102, 30, "/Users/x/.nvm/versions/node/v22.13.0/bin/node", "ttys015"), // older npm release, renamed to claude
+  psLine(701, 700, 31, "node"), // its MCP server
+  psLine(702, 102, 32, "/x/node_modules/@anthropic-ai/claude-code/bin/claude.exe", "ttys016"), // npm's binary by its real path
+  psLine(703, 102, 33, "node", "ttys017"), // a dev server, not Claude Code
+  psLine(704, 102, 34, "node", "ttys018", 502), // another user's node: its command line is not even asked for
+].join("\n");
+const NPM_ARGS = ["  700 claude", "  701 node /Users/x/mcp/server.js", "  703 node /Users/x/app/node_modules/.bin/vite"].join("\n");
+
+test("scanSessions: Claude Code run by node or as npm's claude.exe is a session; its MCP server and other node processes are not", async () => {
+  const { exec, calls } = fakeExec({ ps: NPM_PROCS, args: NPM_ARGS, eww: "", lsof: "" });
+  const out = (await scan(exec))!;
+  expect(out.map((s) => [s.pid, s.kind, s.tty])).toEqual([
+    [700, "Terminal", "ttys015"],
+    [702, "Terminal", "ttys016"],
+  ]);
+  const argsCall = calls.find((c) => c.args[0] === "-ww")!;
+  expect(argsCall.args).toEqual(["-ww", "-o", "pid=,args=", "-p", "700,701,703"]);
+});
+
+test("scanSessions: no node process, no command-line lookup", async () => {
+  const procs = PROCS.split("\n").filter((l) => !/\snode$/.test(l)).join("\n");
+  const { exec, calls } = fakeExec({ ps: procs });
+  await scan(exec);
+  expect(calls.some((c) => c.args[0] === "-ww")).toBe(false);
+});
+
+test("scanSessions: when the command lines cannot be read, node sessions are missed and the rest are still listed", async () => {
+  for (const args of [undefined, "garbage"]) {
+    const { exec } = fakeExec({ ps: NPM_PROCS, args, eww: "", lsof: "" });
+    expect((await scan(exec))!.map((s) => s.pid)).toEqual([702]);
+  }
+  const base = fakeExec({ ps: NPM_PROCS, eww: "", lsof: "" }).exec;
+  const throwing: Exec = async (file, args) => {
+    if (args[0] === "-ww") throw new Error("boom");
+    return base(file, args);
+  };
+  expect((await scan(throwing))!.map((s) => s.pid)).toEqual([702]);
 });
