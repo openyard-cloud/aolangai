@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<!-- Everything comes from this site: inline styles and scripts, the demo in a same-origin frame, images from here. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src 'self' data:; frame-src 'self'; base-uri 'none'; form-action 'none'">
+<!-- Everything comes from this site: inline styles, the two inline scripts by their hashes (site-csp.test.ts keeps them in step), the demo in a same-origin frame, images from here. The one outside script is Cloudflare Web Analytics, which Cloudflare adds to the page when it serves it; it reports to /cdn-cgi/rum on this site. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'sha256-WZRJfWvsnNCPcxzZwvyhovnZGqhZaC+8gPGPRbx6wTk=' 'sha256-R0hAyH3ja9KixjPmt3LCLEd43tjM8029NLMYKh+IedU=' https://static.cloudflareinsights.com; connect-src 'self'; img-src 'self' data:; frame-src 'self'; base-uri 'none'; form-action 'none'">
 <title>aolangai: every Claude account's quota in one place</title>
 <meta name="description" content="A macOS app and a command for people with more than one Claude subscription account on one Mac: every account's quota and open Claude Code sessions in one window, and work handed to the account with the most quota left.">
 <link rel="canonical" href="https://aolangai.openyard.cloud/">
