@@ -5,7 +5,8 @@ import { fileURLToPath } from "node:url";
 import { expect, test } from "vitest";
 
 // The website allows its inline scripts by their SHA-256 hashes, not with 'unsafe-inline'. Editing a script changes
-// its hash: this test names the hash to put in the page's Content-Security-Policy.
+// its hash: this test names the hash to put in the page's Content-Security-Policy. The only other source allowed is
+// Cloudflare Web Analytics, whose script Cloudflare adds to index.html when it serves the page.
 
 const root = dirname(fileURLToPath(import.meta.url));
 
@@ -22,6 +23,9 @@ const directive = (policy: string, name: string) =>
     .find(([n]) => n === name)
     ?.slice(1);
 
+const ANALYTICS_SCRIPT = "https://static.cloudflareinsights.com";
+const ANALYTICS_REPORT = "'self'"; // the beacon reports to /cdn-cgi/rum on the same host
+
 const sha256 = (text: string) => `'sha256-${createHash("sha256").update(text, "utf8").digest("base64")}'`;
 
 for (const page of ["site/index.html", "site/privacy.html"]) {
@@ -35,7 +39,9 @@ for (const page of ["site/index.html", "site/privacy.html"]) {
     const policy = policyOf(html);
     const allowed = directive(policy, "script-src") ?? [];
     expect(allowed.filter((s) => s.startsWith("'unsafe-"))).toEqual([]);
-    expect(allowed.slice().sort()).toEqual(scripts.slice().sort());
+    const analytics = page === "site/index.html" ? [ANALYTICS_SCRIPT] : [];
+    expect(allowed.slice().sort()).toEqual([...scripts, ...analytics].sort());
+    expect(directive(policy, "connect-src")).toEqual(page === "site/index.html" ? [ANALYTICS_REPORT] : undefined);
     if (scripts.length === 0) expect(directive(policy, "default-src")).toEqual(["'none'"]);
   });
 }
