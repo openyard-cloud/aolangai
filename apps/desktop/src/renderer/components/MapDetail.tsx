@@ -26,7 +26,9 @@ interface Line { d: string; cls: string }
  */
 export function MapDetail({ state, now, accountId, to, onBack, onOpenRun, onFocusSession }: MapDetailProps) {
   const nameOf = (id: string) => (id === UNKNOWN_NODE ? "Unknown caller" : state.accounts.find((a) => a.id === id)?.name ?? "deleted account");
-  const title = to !== undefined ? `${nameOf(accountId)} → ${nameOf(to)}` : accountId === UNKNOWN_NODE ? "Runs started from unknown callers" : `Runs started from ${nameOf(accountId)}`;
+  const from = accountId === UNKNOWN_NODE ? "unknown callers" : nameOf(accountId);
+  const title = to !== undefined ? `${nameOf(accountId)} → ${nameOf(to)}` : `Runs started from ${from}`;
+  const empty = `No runs started from ${from}${to !== undefined ? ` on ${nameOf(to)}` : ""} in the last 24 hours.`;
   const groups = mapDetail(state, now, accountId, to);
   // The edges give the workers in account order and each one's runs newest first.
   const workers = mapEdges(state, now).filter((e) => e.from === accountId && (to === undefined || e.to === to));
@@ -75,7 +77,7 @@ export function MapDetail({ state, now, accountId, to, onBack, onOpenRun, onFocu
         <button type="button" onClick={onBack}>← Map</button>
         <h2 title={title}>{title}</h2>
       </header>
-      {groups.length === 0 && <p className="hint">No delegated runs in the last 24 hours.</p>}
+      {groups.length === 0 && <p className="hint">{empty}</p>}
       {groups.length > 0 && (
         <div className="map-detail-body" ref={box}>
           <svg className="map-links" aria-hidden>

@@ -4,6 +4,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import type { Run } from "@aolangai/core";
 import type { OpenSession } from "../../shared/api.js";
 import { account, appState, run } from "../testing.js";
+import { UNKNOWN_NODE } from "../view/map.js";
 import { MapDetail } from "./MapDetail.js";
 
 const NOW = new Date(2026, 10, 17, 12, 0).getTime();
@@ -48,4 +49,13 @@ test("an edge's detail: only the runs on that worker", () => {
   expect(h).not.toContain("on Side project");
   expect(h).not.toContain("rename outDir");
   expect(h).not.toContain("Personal · app");
+});
+
+test("an account that only ran work: the empty line names it, not delegation in general", () => {
+  const detail = (accountId: string, to?: string) =>
+    renderToStaticMarkup(createElement(MapDetail, { state, now: NOW, accountId, to, onBack: noop, onOpenRun: noop, onFocusSession: noop }));
+  expect(detail("work")).toContain("No runs started from Work in the last 24 hours.");
+  expect(detail("work")).not.toContain("No delegated runs");
+  expect(detail(UNKNOWN_NODE)).toContain("No runs started from unknown callers in the last 24 hours.");
+  expect(detail("work", "side")).toContain("No runs started from Work on Side project in the last 24 hours.");
 });
