@@ -1,6 +1,6 @@
 import { spawnSync } from "node:child_process";
 import type { Account, Caller } from "../types.js";
-import { DESKTOP_KIND, hostOf, isClaudeBinary, isClaudeCommandLine, isNode, normalizeConfigDir, parsePs, type Proc } from "./procs.js";
+import { DESKTOP_KIND, accountForConfigDir, hostOf, isClaudeBinary, isClaudeCommandLine, isNode, parsePs, usesCredentialVar, type Proc } from "./procs.js";
 
 /** Runs `/bin/ps` with the args; its stdout, or undefined when it could not run. */
 export type PsRun = (args: string[]) => string | undefined;
@@ -12,17 +12,14 @@ export const realPs: PsRun = (args) => {
   return r.status === 0 || r.status === 1 ? r.stdout : undefined;
 };
 
-/** Variables that make Claude Code log in without the account's config dir. */
-const CREDENTIAL_VARS = ["ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "CLAUDE_CODE_OAUTH_TOKEN"];
-
 /**
- * The account a Claude Code session runs on, from the environment it passed down to us. Only whether a credential
- * variable is set is looked at, never its value; with one set the account cannot be told from the config dir.
+ * The account a Claude Code session runs on, from the environment it passed down to us, with the same rules as the
+ * app's open-session scan (`accountForConfigDir`). Only whether a credential variable is present is looked at, never
+ * its value; with one present the account cannot be told from the config dir.
  */
 export function callerAccount(env: NodeJS.ProcessEnv, accounts: Pick<Account, "id" | "configDir">[]): string | undefined {
-  if (CREDENTIAL_VARS.some((name) => env[name])) return undefined;
-  const dir = normalizeConfigDir(env.CLAUDE_CONFIG_DIR);
-  return accounts.find((a) => normalizeConfigDir(a.configDir) === dir)?.id;
+  if (usesCredentialVar((name) => env[name] !== undefined)) return undefined;
+  return accountForConfigDir(env.CLAUDE_CONFIG_DIR, accounts);
 }
 
 const PROC_FORMAT = "pid=,ppid=,uid=,tty=,lstart=,comm=";

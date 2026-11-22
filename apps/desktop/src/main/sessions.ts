@@ -1,13 +1,14 @@
 import { execFile } from "node:child_process";
 import {
+  accountForConfigDir,
   hostOf,
   isClaudeBinary,
   isClaudeCommandLine,
   isNode,
-  normalizeConfigDir,
   parsePs,
   sessionHost,
   someAncestor,
+  usesCredentialVar,
   type Account,
   type Proc,
 } from "@aolangai/core";
@@ -50,37 +51,22 @@ async function claudeNodes(nodes: Proc[], exec: Exec): Promise<Set<number>> {
 /** Which app hosts the process. */
 export const sessionKind = (proc: Proc, byPid: Map<number, Proc>): string => sessionHost(proc, byPid).kind;
 
-const SECRET_VARS = [" ANTHROPIC_API_KEY=", " ANTHROPIC_AUTH_TOKEN=", " CLAUDE_CODE_OAUTH_TOKEN="];
 const CONFIG_DIR_VAR = " CLAUDE_CONFIG_DIR=";
 const NEXT_VAR = /^ [A-Za-z_][A-Za-z0-9_]*=/;
 
 /**
- * The account an interactive claude runs as, from its `ps eww` text (command line, then environment). Only the value of
- * CLAUDE_CONFIG_DIR is used; for the credential variables just their presence is checked. Undefined: a login that is not
- * a config dir (API key or token), a dir that belongs to no account, or a name that occurs twice (the text is the command
- * line followed by the environment, so an argument can carry it too). With the variable set, Claude Code uses another
- * Keychain entry than the default login, so the account without a configDir is never a candidate then.
+ * The account an interactive claude runs as, from its `ps eww` text (command line, then environment), with the same
+ * rules as the CLI's `callerAccount` (`accountForConfigDir`). Only the value of CLAUDE_CONFIG_DIR is used; for the
+ * credential variables just their presence is checked. Undefined: a login that is not a config dir (API key or token),
+ * a dir that belongs to no account, or a name that occurs twice (the text is the command line followed by the
+ * environment, so an argument can carry it too).
  */
 export function accountOf(envText: string, accounts: Pick<Account, "id" | "configDir">[]): string | undefined {
-  if (SECRET_VARS.some((v) => envText.includes(v))) return undefined;
+  if (usesCredentialVar((name) => envText.includes(` ${name}=`))) return undefined;
   const at = envText.indexOf(CONFIG_DIR_VAR);
-  if (at < 0) {
-    const dflt = normalizeConfigDir(undefined);
-    return accounts.find((a) => normalizeConfigDir(a.configDir) === dflt)?.id;
-  }
+  if (at < 0) return accountForConfigDir(undefined, accounts);
   if (envText.indexOf(CONFIG_DIR_VAR, at + 1) >= 0) return undefined;
-  const value = envText.slice(at + CONFIG_DIR_VAR.length);
-  const byDirLength = accounts
-    .filter((a) => a.configDir?.trim())
-    .map((a) => ({ id: a.id, dir: normalizeConfigDir(a.configDir) }))
-    .sort((x, y) => y.dir.length - x.dir.length);
-  for (const { id, dir } of byDirLength) {
-    if (!value.startsWith(dir)) continue;
-    let rest = value.slice(dir.length);
-    if (rest.startsWith("/")) rest = rest.slice(1);
-    if (rest === "" || NEXT_VAR.test(rest)) return id;
-  }
-  return undefined;
+  return accountForConfigDir(envText.slice(at + CONFIG_DIR_VAR.length), accounts, (rest) => rest === "" || NEXT_VAR.test(rest));
 }
 
 /** Parses `lsof -Fpn` output (p<pid>, then f/n fields): pid to its working directory. */

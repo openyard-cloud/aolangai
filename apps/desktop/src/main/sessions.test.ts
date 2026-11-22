@@ -1,5 +1,6 @@
 import { beforeEach, test, expect } from "vitest";
-import type { Account } from "@aolangai/core";
+import { callerAccount, type Account } from "@aolangai/core";
+import os from "node:os";
 import { normalizeConfigDir } from "./accounts.js";
 import { DESKTOP_KIND, OTHER_KIND, TITLE_BACKOFF_MS, accountOf, isClaudeCommandLine, parseCwds, parsePs, parseTabTitles, realExec, resetTitleBackoff, scanSessions, sessionHost, sessionKind, sessionName, type Exec, type Proc } from "./sessions.js";
 
@@ -160,6 +161,35 @@ test("accountOf: a path with accented letters matches intact", () => {
   const viet = [{ id: "d" }, { id: "b", configDir: "/Users/x/Dự án/claude-b" }, { id: "bc", configDir: "/Users/x/Dự án/claude-bc" }];
   expect(accountOf(`${CMD} CLAUDE_CONFIG_DIR=/Users/x/Dự án/claude-b TERM=x`, viet)).toBe("b");
   expect(accountOf(`${CMD} CLAUDE_CONFIG_DIR=/Users/x/Dự án/claude-bc`, viet)).toBe("bc");
+});
+
+// ---- accountOf and the CLI's callerAccount agree
+
+test("accountOf and callerAccount give the same account for the same environment", () => {
+  const home = os.homedir();
+  const accounts = [{ id: "d" }, { id: "w", configDir: "~/.claude-work" }, { id: "a", configDir: `${PROFILES}/a` }, { id: "ab", configDir: `${PROFILES}/ab` }];
+  const rows: [Record<string, string>, string | undefined][] = [
+    [{}, "d"],
+    [{ TERM: "xterm" }, "d"],
+    [{ CLAUDE_CONFIG_DIR: `${home}/.claude-work` }, "w"],
+    [{ CLAUDE_CONFIG_DIR: `${home}/.claude-work/`, TERM: "x" }, "w"],
+    [{ CLAUDE_CONFIG_DIR: `${PROFILES}/a` }, "a"],
+    [{ CLAUDE_CONFIG_DIR: `${PROFILES}/ab`, TERM: "x" }, "ab"],
+    [{ CLAUDE_CONFIG_DIR: `${PROFILES}/abc` }, undefined],
+    [{ CLAUDE_CONFIG_DIR: "/elsewhere" }, undefined],
+    [{ CLAUDE_CONFIG_DIR: `${home}/.claude` }, undefined],
+    [{ CLAUDE_CONFIG_DIR: "~/.claude-work" }, undefined],
+    [{ CLAUDE_CONFIG_DIR: "" }, undefined],
+    [{ CLAUDE_CONFIG_DIR: "", TERM: "x" }, undefined],
+    [{ ANTHROPIC_API_KEY: "" }, undefined],
+    [{ CLAUDE_CONFIG_DIR: `${PROFILES}/a`, CLAUDE_CODE_OAUTH_TOKEN: "t" }, undefined],
+    [{ ANTHROPIC_AUTH_TOKEN: "t" }, undefined],
+  ];
+  for (const [env, want] of rows) {
+    const ewwText = [CMD, ...Object.entries(env).map(([k, v]) => `${k}=${v}`)].join(" ");
+    expect({ env, app: accountOf(ewwText, accounts) }).toEqual({ env, app: want });
+    expect({ env, cli: callerAccount(env, accounts) }).toEqual({ env, cli: want });
+  }
 });
 
 // ---- parseCwds

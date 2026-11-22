@@ -32,8 +32,10 @@ export { LOST_DISPATCHER, processStart, stopAll, stopRun, sweepDeadRuns, type Co
 export { MARKER, defaultInstallPaths, install, installShim, installSkill, installStatus, shimStatus, shimText, skillStatus, type CliRuntime, type FileStatus, type InstallPaths, type InstallStatus } from "./install.js";
 export {
   DESKTOP_BINARY_DIR,
+  CREDENTIAL_VARS,
   DESKTOP_KIND,
   OTHER_KIND,
+  accountForConfigDir,
   hostOf,
   isClaudeBinary,
   isClaudeCommandLine,
@@ -42,6 +44,7 @@ export {
   parsePs,
   sessionHost,
   someAncestor,
+  usesCredentialVar,
   type Proc,
 } from "./procs/procs.js";
 export { callerAccount, findCaller, realPs, type PsRun } from "./procs/caller.js";

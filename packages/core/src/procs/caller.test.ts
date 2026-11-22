@@ -141,12 +141,22 @@ test("the walk stops at launchd: pid 1 is never asked for", () => {
   expect(ps.calls.some((a) => a.includes("-p") && a[a.indexOf("-p") + 1] === "1")).toBe(false);
 });
 
-test("callerAccount: a blank CLAUDE_CONFIG_DIR is the default account, an empty credential variable is not set", () => {
-  expect(callerAccount({ CLAUDE_CONFIG_DIR: "  " }, accounts)).toBe("p");
-  expect(callerAccount({ ANTHROPIC_API_KEY: "" }, accounts)).toBe("p");
+test("callerAccount: a present variable counts even when empty or blank", () => {
+  expect(callerAccount({ CLAUDE_CONFIG_DIR: "" }, accounts)).toBeUndefined();
+  expect(callerAccount({ CLAUDE_CONFIG_DIR: "  " }, accounts)).toBeUndefined();
+  expect(callerAccount({ ANTHROPIC_API_KEY: "" }, accounts)).toBeUndefined();
   for (const name of ["ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "CLAUDE_CODE_OAUTH_TOKEN"]) {
     expect(callerAccount({ [name]: "x" }, accounts)).toBeUndefined();
   }
   expect(callerAccount({ CLAUDE_CONFIG_DIR: `${HOME}/.elsewhere` }, accounts)).toBeUndefined();
   expect(callerAccount({}, [account("w", "~/.claude-work")])).toBeUndefined();
+});
+
+test("callerAccount: CLAUDE_CONFIG_DIR set to ~/.claude is never the account without a configDir", () => {
+  expect(callerAccount({ CLAUDE_CONFIG_DIR: `${HOME}/.claude` }, accounts)).toBeUndefined();
+  expect(callerAccount({ CLAUDE_CONFIG_DIR: `${HOME}/.claude` }, [...accounts, account("e", "~/.claude")])).toBe("e");
+});
+
+test("callerAccount: a literal ~ in the value is not expanded", () => {
+  expect(callerAccount({ CLAUDE_CONFIG_DIR: "~/.claude-work" }, accounts)).toBeUndefined();
 });

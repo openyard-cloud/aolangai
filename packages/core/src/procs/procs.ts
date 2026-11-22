@@ -1,6 +1,7 @@
 import os from "node:os";
 import path from "node:path";
 import { expandHome } from "../accounts/env.js";
+import type { Account } from "../types.js";
 
 export interface Proc {
   pid: number;
@@ -23,6 +24,40 @@ export const OTHER_KIND = "other";
 export function normalizeConfigDir(configDir: string | undefined): string {
   const dir = configDir?.trim();
   return path.resolve(expandHome(dir ? dir : path.join(os.homedir(), ".claude")));
+}
+
+/** Variables that make Claude Code log in without the account's config dir. */
+export const CREDENTIAL_VARS = ["ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "CLAUDE_CODE_OAUTH_TOKEN"] as const;
+
+/** Whether a credential variable is present, even empty; `isSet` answers for one name. Its value is never looked at. */
+export const usesCredentialVar = (isSet: (name: string) => boolean): boolean => CREDENTIAL_VARS.some(isSet);
+
+/**
+ * The account a Claude Code session with this CLAUDE_CONFIG_DIR value runs as; `value` undefined means the variable
+ * is not set. Set (even empty), Claude Code uses another Keychain entry than the default login, so only accounts with
+ * a configDir are candidates then, the longest dir first; the value is compared as is, with one trailing slash
+ * allowed. `isEnd` says whether what follows the dir ends the value (in ps text, the next variable may follow).
+ */
+export function accountForConfigDir(
+  value: string | undefined,
+  accounts: Pick<Account, "id" | "configDir">[],
+  isEnd: (rest: string) => boolean = (rest) => rest === "",
+): string | undefined {
+  if (value === undefined) {
+    const dflt = normalizeConfigDir(undefined);
+    return accounts.find((a) => normalizeConfigDir(a.configDir) === dflt)?.id;
+  }
+  const byDirLength = accounts
+    .filter((a) => a.configDir?.trim())
+    .map((a) => ({ id: a.id, dir: normalizeConfigDir(a.configDir) }))
+    .sort((x, y) => y.dir.length - x.dir.length);
+  for (const { id, dir } of byDirLength) {
+    if (!value.startsWith(dir)) continue;
+    let rest = value.slice(dir.length);
+    if (rest.startsWith("/")) rest = rest.slice(1);
+    if (isEnd(rest)) return id;
+  }
+  return undefined;
 }
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
