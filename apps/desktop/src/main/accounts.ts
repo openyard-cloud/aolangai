@@ -1,15 +1,10 @@
-import os from "node:os";
 import path from "node:path";
-import { expandHome, type Account } from "@aolangai/core";
+import { normalizeConfigDir, type Account } from "@aolangai/core";
+
+export { normalizeConfigDir };
 
 const DEFAULT_RESERVE_PCT = 90;
 const HOME_PREFIX = /^~(\/|$)/;
-
-/** The directory a configDir value means: empty and `~/.claude` are the same default one. */
-export function normalizeConfigDir(configDir: string | undefined): string {
-  const dir = configDir?.trim();
-  return path.resolve(expandHome(dir ? dir : path.join(os.homedir(), ".claude")));
-}
 
 const isAbsoluteOrHome = (p: string) => path.isAbsolute(p) || HOME_PREFIX.test(p);
 

@@ -30,3 +30,17 @@ export {
 export { DispatchRefused, dispatch, type DispatchDeps, type DispatchRequest, type RefuseCode } from "./runs/dispatch.js";
 export { LOST_DISPATCHER, processStart, stopAll, stopRun, sweepDeadRuns, type ControlOptions } from "./runs/control.js";
 export { MARKER, defaultInstallPaths, install, installShim, installSkill, installStatus, shimStatus, shimText, skillStatus, type CliRuntime, type FileStatus, type InstallPaths, type InstallStatus } from "./install.js";
+export {
+  DESKTOP_BINARY_DIR,
+  DESKTOP_KIND,
+  OTHER_KIND,
+  hostOf,
+  isClaudeBinary,
+  isClaudeCommandLine,
+  isNode,
+  normalizeConfigDir,
+  parsePs,
+  sessionHost,
+  someAncestor,
+  type Proc,
+} from "./procs/procs.js";
