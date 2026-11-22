@@ -1,4 +1,4 @@
-import { createRepos, openDb } from "@aolangai/core";
+import { createRepos, findCaller, openDb, type Account, type Caller } from "@aolangai/core";
 import { parseCli } from "./args.js";
 import { installCommand } from "./commands/install.js";
 import { runCommand } from "./commands/run.js";
@@ -11,6 +11,17 @@ async function readAllStdin(): Promise<string> {
   const chunks: Buffer[] = [];
   for await (const c of process.stdin) chunks.push(c as Buffer);
   return Buffer.concat(chunks).toString("utf8");
+}
+
+/**
+ * TEST ONLY (AOLANGAI_TEST_CALLER): replaces the search for the calling Claude Code session, which a spawned test
+ * process cannot get an injected function for. "none" is no caller; anything else is the caller as JSON.
+ */
+function callerFinder(env: NodeJS.ProcessEnv, accounts: () => Account[]): () => Caller | undefined {
+  const forced = env.AOLANGAI_TEST_CALLER;
+  if (forced === "none") return () => undefined;
+  if (forced) return () => JSON.parse(forced) as Caller;
+  return () => findCaller({ selfPid: process.pid, env, accounts: accounts() });
 }
 
 /** Runs one command line; resolves with the exit code. */
@@ -38,7 +49,7 @@ export async function main(argv: string[], env: NodeJS.ProcessEnv = process.env,
       case "stop":
         return stopCommand(repos, io, cmd.target);
       case "run":
-        return await runCommand(cmd, { repos, io, env, dbFile, readStdin: readAllStdin });
+        return await runCommand(cmd, { repos, io, env, dbFile, findCaller: callerFinder(env, () => repos.accounts.list()), readStdin: readAllStdin });
     }
     return 1; // unreachable: every command is handled above
   } catch (e) {
