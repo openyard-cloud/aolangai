@@ -5,9 +5,9 @@ import { DESKTOP_KIND, hostOf, isClaudeBinary, isClaudeCommandLine, isNode, norm
 /** Runs `/bin/ps` with the args; its stdout, or undefined when it could not run. */
 export type PsRun = (args: string[]) => string | undefined;
 
-/** Exit 1 counts as success: `ps -p` uses it when the asked-for pid does not exist. English month names (LC_ALL=C) and UTC, as `parsePs` expects. */
+/** Exit 1 counts as success: `ps -p` uses it when the asked-for pid does not exist. English month names (LC_TIME=C) and UTC, as `parsePs` expects; the same env as the app's session scan, so both read a path the same way. */
 export const realPs: PsRun = (args) => {
-  const r = spawnSync("/bin/ps", args, { encoding: "utf8", env: { LC_ALL: "C", LC_CTYPE: "UTF-8", TZ: "UTC" }, timeout: 2000, maxBuffer: 1024 * 1024 });
+  const r = spawnSync("/bin/ps", args, { encoding: "utf8", env: { LC_CTYPE: "UTF-8", LC_TIME: "C", TZ: "UTC" }, timeout: 2000, maxBuffer: 1024 * 1024 });
   // A spawn error or a timeout kill leaves no exit status.
   return r.status === 0 || r.status === 1 ? r.stdout : undefined;
 };
