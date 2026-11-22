@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { DEFAULT_LIMITS } from "@aolangai/core";
 import { API_METHODS, DESKTOP_KIND, TERMINAL_KIND, type ApiMethod, type AppNotice, type AppState } from "../src/shared/api.js";
+import { callerOf } from "../src/renderer/view/callers.js";
+import { mapEdges } from "../src/renderer/view/map.js";
 import { needsYou } from "../src/renderer/view/runs.js";
 import { outside } from "../src/renderer/view/sessions.js";
 import { MACHINE_ONLY, RETRY_MS, TERMINAL_DELAY_MS, createDemoBridge } from "./bridge.js";
@@ -68,6 +70,24 @@ describe("the sample", () => {
     expect(on("Personal").map((x) => x.kind)).toEqual([DESKTOP_KIND, DESKTOP_KIND]);
     expect(s.desktopAccountId).toBe(s.accounts.find((a) => a.name === "Personal")!.id);
     expect(outside(s)).toMatchObject({ desktop: [], unknown: [{}] });
+  });
+
+  test("callers: the runs name the open sessions that delegated them, and one run has none; the Map has edges to draw", () => {
+    const s = sampleState(NOW);
+    const label = (id: number) => callerOf(runOf(s, id)!, s)?.label;
+    expect([47, 46, 45, 44, 43].map(label)).toEqual([
+      "Personal · app",
+      "Personal · notes",
+      undefined,
+      "Personal · notes",
+      "Work · Fix login redirect",
+    ]);
+    const edges = mapEdges(s, NOW);
+    expect(edges.length).toBeGreaterThanOrEqual(2);
+    // every caller is a known account: the sample has no Unknown caller box
+    expect(edges.every((e) => e.from !== "unknown")).toBe(true);
+    expect(edges.some((e) => e.running > 0)).toBe(true);
+    expect(edges.some((e) => e.failed > 0)).toBe(true);
   });
 
   test("the setup scene has no account yet", () => {

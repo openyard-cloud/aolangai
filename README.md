@@ -65,6 +65,7 @@ You can also call the command yourself:
 - Click a run to see its prompt, result and steps, with **Stop**, **Retry** and **Open in Terminal**.
 - **Needs you** collects runs that failed, hit a limit or had a permission denied, and accounts over their reserve.
 - **Switch to** brings an open session's Terminal tab or app to the front.
+- **Map** (the `Lanes | Map` switch) draws which account's sessions delegated to which in the last 24 hours; click a box or an arrow to see the sessions and their runs.
 
 ![Needs you with sample data: a denied permission, a failed run and an account over its reserve](docs/screenshots/needs-you.png)
 

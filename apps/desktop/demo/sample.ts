@@ -66,6 +66,24 @@ function statuses(now: number): AccountStatus[] {
 
 const lines = (...l: string[]) => l.join("\n");
 
+/** The caller fields of a run delegated from the open sample session with this pid, so the labels resolve to the session's name. */
+function from(now: number, pid: number): Pick<Run, "callerPid" | "callerStartedAt" | "callerKind" | "callerAccountId"> {
+  const session = sessions(now).find((x) => x.pid === pid);
+  if (!session) throw new Error(`No sample session ${pid}`);
+  // Claude desktop has no account in the process list: the account comes from desktopAccountId in the state.
+  return {
+    callerPid: session.pid,
+    callerStartedAt: session.startedAt,
+    callerKind: session.kind,
+    ...(session.kind !== DESKTOP_KIND && session.accountId ? { callerAccountId: session.accountId } : {}),
+  };
+}
+
+/** Pids of the sample sessions that delegate runs; run 45 has no caller, like a run from before callers were recorded. */
+const NOTES_SESSION = 60123;
+const APP_SESSION = 60140;
+const LOGIN_SESSION = 41388;
+
 function runs(now: number): Run[] {
   const base = { primaryWorker: false, readOnly: false };
   return [
@@ -77,6 +95,7 @@ function runs(now: number): Run[] {
       cwd: APP,
       accountId: WORK,
       sessionId: "demo-session-47",
+      ...from(now, APP_SESSION),
       primaryWorker: true,
       status: "running",
       createdAt: now - 25 * S,
@@ -89,6 +108,7 @@ function runs(now: number): Run[] {
       cwd: APP,
       accountId: WORK,
       sessionId: "demo-session-46",
+      ...from(now, NOTES_SESSION),
       status: "done",
       result: lines(
         "The migration is written but **not applied**: running `npm run migrate` was denied.",
@@ -140,6 +160,7 @@ function runs(now: number): Run[] {
       cwd: SIDE,
       accountId: SIDE_PROJECT,
       sessionId: "demo-session-44",
+      ...from(now, NOTES_SESSION),
       status: "done",
       result: lines(
         "Renamed `outDir` to `outputDir` in 14 files, docs included.",
@@ -161,6 +182,7 @@ function runs(now: number): Run[] {
       cwd: SIDE,
       accountId: SIDE_PROJECT,
       sessionId: "demo-session-43",
+      ...from(now, LOGIN_SESSION),
       status: "failed",
       error: "Timed out after 30 minutes",
       inputTokens: 88_960,
