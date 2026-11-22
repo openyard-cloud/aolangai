@@ -88,13 +88,19 @@ test("Asked by: the caller's label, with Switch to while its session is open", (
   expect(buttons(html({ status: "done" }, [], [], caller()))).not.toContain("Switch to");
 });
 
+test("Asked by: the label sits in its own span, so a long one shrinks and Switch to stays beside it", () => {
+  const label = `Personal · ${"n".repeat(80)}`;
+  const h = html({ status: "done" }, [], [], { ...caller({}), label });
+  expect(h).toMatch(new RegExp(`<dd class="asked-by"><span class="asked-by-label">${label}</span><button[^>]*class="small asked-switch"[^>]*>Switch to</button></dd>`));
+});
+
 test("Asked by: no Switch to for a session nothing can bring forward", () => {
   expect(buttons(html({ status: "done" }, [], [], caller({ kind: OTHER_KIND, tty: undefined })))).not.toContain("Switch to");
 });
 
 test("Asked by: unknown without a caller", () => {
   const h = html({ status: "done" });
-  expect(h).toContain("<dt>Asked by</dt><dd>unknown</dd>");
+  expect(h).toContain('<dt>Asked by</dt><dd class="asked-by"><span class="asked-by-label">unknown</span></dd>');
   expect(buttons(h)).not.toContain("Switch to");
 });
 

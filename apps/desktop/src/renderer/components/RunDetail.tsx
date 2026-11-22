@@ -77,8 +77,8 @@ export function RunDetail({ run, runs, accountName, now, events, caller, onClose
           <dl className="meta">
             <dt>Account</dt><dd>{accountName}</dd>
             <dt>Asked by</dt>
-            <dd>
-              {caller?.label ?? "unknown"}
+            <dd className="asked-by">
+              <span className="asked-by-label">{caller?.label ?? "unknown"}</span>
               {session && hint !== undefined && (
                 <button type="button" className="small asked-switch" title={hint} onClick={() => onFocusSession(session.pid)}>
                   Switch to

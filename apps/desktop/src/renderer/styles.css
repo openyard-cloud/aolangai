@@ -147,7 +147,10 @@ button.small { padding: 0 6px; font-size: 12px; }
 .step-at, .step-kind { color: var(--muted); font-size: 12px; }
 .steps li.tool .step-text { background: var(--code); padding: 0 5px; border-radius: 4px; max-height: 8em; overflow: auto; }
 .steps li.text .step-text { max-height: 8em; overflow: auto; }
-.meta dd > .asked-switch { margin-left: 8px; }
+/* A long session name shrinks with an ellipsis; Switch to stays whole beside it. */
+.meta dd.asked-by { display: flex; align-items: center; gap: 8px; }
+.asked-by-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.meta dd > .asked-switch { flex: none; }
 .detail-actions { padding: 10px 16px; border-top: 1px solid var(--border); }
 
 /* Empty state */
