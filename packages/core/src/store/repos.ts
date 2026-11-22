@@ -95,6 +95,7 @@ const RUN_COLS: Columns<Run> = {
   id: "int", prompt: "text", label: "text", cwd: "text", accountId: "text", sessionId: "text", primaryWorker: "bool", readOnly: "bool",
   status: "text", result: "text", error: "text", denials: "json", note: "text", pid: "int", pidStart: "text",
   workerPid: "int", workerPidStart: "text", retryOf: "int",
+  callerPid: "int", callerStartedAt: "int", callerKind: "text", callerAccountId: "text",
   inputTokens: "int", outputTokens: "int", contextTokens: "int", createdAt: "int", finishedAt: "int",
 };
 const EVENT_COLS: Columns<RunEvent> = { id: "int", runId: "int", kind: "text", text: "text", createdAt: "int" };

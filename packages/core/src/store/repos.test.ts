@@ -64,6 +64,15 @@ test("runs.insert then get returns every field, denials is an array", () => {
   expect(r.runs.get(999)).toBeUndefined();
 });
 
+test("a run keeps its caller", () => {
+  const r = mem();
+  const caller = { callerPid: 41, callerStartedAt: 1_700_000_000_000, callerKind: "Terminal", callerAccountId: "a1" };
+  const withCaller = r.runs.insert(run(caller));
+  expect(r.runs.get(withCaller.id)).toEqual({ id: withCaller.id, ...run(caller) });
+  const without = r.runs.get(r.runs.insert(run()).id)!;
+  for (const k of Object.keys(caller)) expect(without).not.toHaveProperty(k);
+});
+
 test("runs.update changes only the fields in the patch", () => {
   const r = mem();
   const a = r.runs.insert(run({ label: "L" }));

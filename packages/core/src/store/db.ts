@@ -91,6 +91,9 @@ export const MIGRATIONS: string[] = [
   `,
   // 6: the claude process of a run, so a run whose dispatcher died can have its orphaned claude killed.
   `ALTER TABLE runs ADD COLUMN worker_pid INTEGER; ALTER TABLE runs ADD COLUMN worker_pid_start TEXT;`,
+  // 7: the Claude Code session that called `aolangai run`, for the delegation map.
+  `ALTER TABLE runs ADD COLUMN caller_pid INTEGER; ALTER TABLE runs ADD COLUMN caller_started_at INTEGER;
+   ALTER TABLE runs ADD COLUMN caller_kind TEXT; ALTER TABLE runs ADD COLUMN caller_account_id TEXT;`,
 ];
 
 /** Opens (or creates) the database and brings its schema up to date. Use ":memory:" in tests. */

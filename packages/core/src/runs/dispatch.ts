@@ -4,7 +4,7 @@ import { folderAllowed, selectAccount, usedPct, type Candidate, type Exclusion }
 import { canonicalPath } from "../guards/paths.js";
 import { markLimited, refreshStale, type UsageFetch } from "../status/quota-poller.js";
 import type { Repos } from "../store/repos.js";
-import type { Account, AccountStatus, Limits, Run } from "../types.js";
+import type { Account, AccountStatus, Caller, Limits, Run } from "../types.js";
 import { NEST_ENV, runClaude, type ClaudeOutcome } from "./claude-run.js";
 import { processStart, sweepDeadRuns, type ControlOptions } from "./control.js";
 import { cut } from "./tool-text.js";
@@ -22,6 +22,8 @@ export interface DispatchRequest {
   retryOf?: number;
   /** Put before the prompt for the worker only; the run row and the app show the prompt as given. */
   preamble?: string;
+  /** The Claude Code session that asked for this run; recorded on the row. */
+  caller?: Caller;
 }
 export interface DispatchDeps {
   repos: Repos;
@@ -210,6 +212,10 @@ function claim(deps: DispatchDeps, req: DispatchRequest, cwd: string, limits: Li
     pid: deps.pid,
     pidStart: deps.pidStart,
     retryOf: req.retryOf,
+    callerPid: req.caller?.pid,
+    callerStartedAt: req.caller?.startedAt,
+    callerKind: req.caller?.kind,
+    callerAccountId: req.caller?.accountId,
     createdAt: now,
   });
   return { run, account: sel.account, plan };
