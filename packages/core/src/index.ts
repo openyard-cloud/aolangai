@@ -44,3 +44,4 @@ export {
   someAncestor,
   type Proc,
 } from "./procs/procs.js";
+export { callerAccount, findCaller, realPs, type PsRun } from "./procs/caller.js";
