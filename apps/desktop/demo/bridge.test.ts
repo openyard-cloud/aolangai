@@ -72,7 +72,7 @@ describe("the sample", () => {
     expect(outside(s)).toMatchObject({ desktop: [], unknown: [{}] });
   });
 
-  test("callers: the runs name the open sessions that delegated them, and one run has none; the Map has edges to draw", () => {
+  test("callers: the runs name the open sessions that delegated them, one comes from a session that has closed, and one has none; the Map has edges to draw", () => {
     const s = sampleState(NOW);
     const label = (id: number) => callerOf(runOf(s, id)!, s)?.label;
     expect([47, 46, 45, 44, 43].map(label)).toEqual([
@@ -80,7 +80,7 @@ describe("the sample", () => {
       "Personal · notes",
       undefined,
       "Personal · notes",
-      "Work · Fix login redirect",
+      "Work · Terminal",
     ]);
     const edges = mapEdges(s, NOW);
     expect(edges.length).toBeGreaterThanOrEqual(2);

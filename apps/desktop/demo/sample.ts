@@ -79,10 +79,9 @@ function from(now: number, pid: number): Pick<Run, "callerPid" | "callerStartedA
   };
 }
 
-/** Pids of the sample sessions that delegate runs; run 45 has no caller, like a run from before callers were recorded. */
+/** Pids of the open sample sessions that delegate runs; run 45 has no caller, like a run from before callers were recorded. */
 const NOTES_SESSION = 60123;
 const APP_SESSION = 60140;
-const LOGIN_SESSION = 41388;
 
 function runs(now: number): Run[] {
   const base = { primaryWorker: false, readOnly: false };
@@ -182,7 +181,11 @@ function runs(now: number): Run[] {
       cwd: SIDE,
       accountId: SIDE_PROJECT,
       sessionId: "demo-session-43",
-      ...from(now, LOGIN_SESSION),
+      // A Work Terminal session that has closed since: no open session matches, so the label falls back to the app's name.
+      callerPid: 39877,
+      callerStartedAt: now - 5 * H,
+      callerKind: TERMINAL_KIND,
+      callerAccountId: WORK,
       status: "failed",
       error: "Timed out after 30 minutes",
       inputTokens: 88_960,
