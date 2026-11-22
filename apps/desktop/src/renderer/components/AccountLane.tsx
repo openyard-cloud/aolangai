@@ -1,4 +1,4 @@
-import type { Account } from "@aolangai/core";
+import type { Account, Run } from "@aolangai/core";
 import { reserveWarning, type Lane } from "../view/runs.js";
 import { AccountQuota } from "./AccountQuota.js";
 import { summarize } from "../view/sessions.js";
@@ -10,6 +10,8 @@ export interface AccountLaneProps {
   now: number;
   /** Latest worker step per running run id. */
   steps: Record<number, string | undefined>;
+  /** The label of the session that asked for a run ("Personal · notes"); undefined when not known. */
+  callerLabel?: (r: Run) => string | undefined;
   onToggleAccepting(account: Account): void;
   onLogin(accountId: string): void;
   onOpenTerminal(accountId: string): void;
@@ -18,7 +20,7 @@ export interface AccountLaneProps {
 }
 
 /** One account: quota and switches on top, what runs and what just finished underneath. */
-export function AccountLane({ lane, now, steps, onToggleAccepting, onLogin, onOpenTerminal, onOpenRun, onFocusSession }: AccountLaneProps) {
+export function AccountLane({ lane, now, steps, callerLabel, onToggleAccepting, onLogin, onOpenTerminal, onOpenRun, onFocusSession }: AccountLaneProps) {
   const { account, status } = lane;
   const conn = status?.connection;
   const reserve = reserveWarning(account, status);
@@ -57,8 +59,8 @@ export function AccountLane({ lane, now, steps, onToggleAccepting, onLogin, onOp
         </div>
       )}
       <div className="lane-runs">
-        {lane.running.map((r) => <RunRow key={r.id} run={r} now={now} step={steps[r.id]} onOpen={onOpenRun} />)}
-        {lane.recent.map((r) => <RunRow key={r.id} run={r} now={now} onOpen={onOpenRun} />)}
+        {lane.running.map((r) => <RunRow key={r.id} run={r} now={now} step={steps[r.id]} from={callerLabel?.(r)} onOpen={onOpenRun} />)}
+        {lane.recent.map((r) => <RunRow key={r.id} run={r} now={now} from={callerLabel?.(r)} onOpen={onOpenRun} />)}
         {lane.running.length + lane.recent.length === 0 && <div className="lane-empty">No runs yet</div>}
       </div>
     </section>

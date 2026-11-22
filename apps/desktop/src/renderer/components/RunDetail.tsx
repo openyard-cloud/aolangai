@@ -2,7 +2,9 @@ import { useEffect, useRef } from "react";
 import type { Run, RunEvent } from "@aolangai/core";
 import { clockOrDate, fullTime } from "../view/format.js";
 import { attachPanel } from "../state/panel.js";
+import type { CallerView } from "../view/callers.js";
 import { canOpenTerminal, duration, runTitle, statusLabel } from "../view/runs.js";
+import { focusHint } from "../view/sessions.js";
 import { Markdown } from "./Markdown.js";
 
 export interface RunDetailProps {
@@ -13,12 +15,15 @@ export interface RunDetailProps {
   now: number;
   /** Worker steps, oldest first; undefined while they are still loading. */
   events: RunEvent[] | undefined;
+  /** The session that asked for the run; undefined when not recorded. */
+  caller?: CallerView;
   onClose(): void;
   onStop(id: number): void;
   onRetry(id: number): void;
   onTerminal(id: number): void;
   /** A link clicked in the result; the main process opens only http and https. */
   onOpenLink(url: string): void;
+  onFocusSession(pid: number): void;
 }
 
 const num = (n: number) => n.toLocaleString("en-US");
@@ -28,7 +33,7 @@ const num = (n: number) => n.toLocaleString("en-US");
  * user or the worker: they are plain text nodes (React escapes them); only the result goes through `Markdown`,
  * which drops raw HTML.
  */
-export function RunDetail({ run, runs, accountName, now, events, onClose, onStop, onRetry, onTerminal, onOpenLink }: RunDetailProps) {
+export function RunDetail({ run, runs, accountName, now, events, caller, onClose, onStop, onRetry, onTerminal, onOpenLink, onFocusSession }: RunDetailProps) {
   const closeRef = useRef<HTMLButtonElement>(null);
   // The parent re-renders every second while a run is running and passes a new `onClose` each time: the panel must
   // attach once (focus once) and always call the latest handler.
@@ -55,6 +60,9 @@ export function RunDetail({ run, runs, accountName, now, events, onClose, onStop
     run.contextTokens !== undefined && `context ${num(run.contextTokens)}`,
   ].filter(Boolean);
   const running = run.status === "running";
+  // Same rule as a session row: a button only when something can be brought forward.
+  const session = caller?.session;
+  const hint = session && focusHint(session);
   return (
     <div className="overlay" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <aside className="detail" role="dialog" aria-modal="true" aria-label={`Run #${run.id}`}>
@@ -68,6 +76,15 @@ export function RunDetail({ run, runs, accountName, now, events, onClose, onStop
         <div className="detail-body">
           <dl className="meta">
             <dt>Account</dt><dd>{accountName}</dd>
+            <dt>Asked by</dt>
+            <dd>
+              {caller?.label ?? "unknown"}
+              {session && hint !== undefined && (
+                <button type="button" className="small asked-switch" title={hint} onClick={() => onFocusSession(session.pid)}>
+                  Switch to
+                </button>
+              )}
+            </dd>
             <dt>Folder</dt><dd title={run.cwd}>{run.cwd}</dd>
             {run.sessionId && <><dt>Session</dt><dd title={run.sessionId}>{run.sessionId}</dd></>}
             <dt>Started</dt><dd title={fullTime(run.createdAt)}>{clockOrDate(run.createdAt, now)}</dd>

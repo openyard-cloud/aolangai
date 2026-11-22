@@ -1,6 +1,8 @@
 import { useState } from "react";
 import type { Account } from "@aolangai/core";
 import { AccountLane } from "./components/AccountLane.js";
+import { MapDetail } from "./components/MapDetail.js";
+import { MapView } from "./components/MapView.js";
 import { NeedsYou } from "./components/NeedsYou.js";
 import { OutsideSessions } from "./components/OutsideSessions.js";
 import { RunDetail } from "./components/RunDetail.js";
@@ -9,6 +11,7 @@ import { SetupCard } from "./components/SetupCard.js";
 import { Toasts } from "./components/Toasts.js";
 import { useNow, useRunEvents } from "./state/polling.js";
 import { api, useAppState, useNotices, useToasts } from "./state/store.js";
+import { callerOf } from "./view/callers.js";
 import { lanes, needsYou } from "./view/runs.js";
 import { needsYouCount, runningCount, stopAllQuestion } from "./view/format.js";
 import { outside } from "./view/sessions.js";
@@ -19,6 +22,9 @@ export function App() {
   useNotices(feedback.report);
   const [settingsTab, setSettingsTab] = useState<SettingsTab | null>(null);
   const [openId, setOpenId] = useState<number>();
+  const [view, setView] = useState<"lanes" | "map">("lanes");
+  /** The account (or edge) opened on the map; undefined shows the whole map. */
+  const [mapFocus, setMapFocus] = useState<{ accountId: string; to?: string }>();
   const running = state?.runs.filter((r) => r.status === "running") ?? [];
   const now = useNow(running.length > 0);
   const opened = state?.runs.find((r) => r.id === openId);
@@ -35,6 +41,16 @@ export function App() {
   const stop = (id: number) => attempt(api.stopRun(id), () => feedback.notify(`Sent the stop signal to run #${id}`));
 
   const focusSession = (pid: number) => attempt(api.focusSession(pid));
+  const showMap = () => {
+    setView("map");
+    setMapFocus(undefined);
+  };
+  /** "Needs you" lives on the lanes: switch there first, then scroll once they are drawn. */
+  const showNeeds = () => {
+    setView("lanes");
+    requestAnimationFrame(() => document.getElementById("needs-you")?.scrollIntoView({ behavior: "smooth", block: "start" }));
+  };
+  const home = state !== null && settingsTab === null && state.accounts.length > 0;
 
   return (
     <div className="app">
@@ -45,9 +61,15 @@ export function App() {
         {state && <span className="running-count">{runningCount(running.length)}</span>}
         {state && settingsTab === null && needs.length > 0 && <span className="running-count" aria-hidden>·</span>}
         {state && settingsTab === null && needs.length > 0 && (
-          <button className="link needs-count" onClick={() => document.getElementById("needs-you")?.scrollIntoView({ behavior: "smooth", block: "start" })}>
+          <button className="link needs-count" onClick={showNeeds}>
             {needsYouCount(needs.length)}
           </button>
+        )}
+        {home && (
+          <div className="view-switch" role="group" aria-label="View">
+            <button type="button" aria-pressed={view === "lanes"} onClick={() => setView("lanes")}>Lanes</button>
+            <button type="button" aria-pressed={view === "map"} onClick={showMap}>Map</button>
+          </div>
         )}
         <button className="danger" disabled={running.length === 0} onClick={stopAll}>Stop all</button>
         {settingsTab === null && <button onClick={() => setSettingsTab("accounts")}>Settings</button>}
@@ -56,7 +78,24 @@ export function App() {
         {state === null && <p className="empty">Loading…</p>}
         {state && settingsTab !== null && <Settings key={settingsTab} state={state} feedback={feedback} initialTab={settingsTab} onInstalled={refresh} />}
         {state && settingsTab === null && state.accounts.length === 0 && <SetupCard state={state} onOpenSettings={setSettingsTab} />}
-        {state && settingsTab === null && state.accounts.length > 0 && (
+        {state && home && view === "map" && (
+          <div className="map-page">
+            {mapFocus ? (
+              <MapDetail
+                state={state}
+                now={now}
+                accountId={mapFocus.accountId}
+                to={mapFocus.to}
+                onBack={() => setMapFocus(undefined)}
+                onOpenRun={setOpenId}
+                onFocusSession={focusSession}
+              />
+            ) : (
+              <MapView state={state} now={now} onOpenAccount={(accountId, to) => setMapFocus(to === undefined ? { accountId } : { accountId, to })} />
+            )}
+          </div>
+        )}
+        {state && home && view === "lanes" && (
           <div className="lanes">
             <SetupCard state={state} onOpenSettings={setSettingsTab} />
             {lanes(state).map((lane) => (
@@ -65,6 +104,7 @@ export function App() {
                 lane={lane}
                 now={now}
                 steps={steps}
+                callerLabel={(r) => callerOf(r, state)?.label}
                 onToggleAccepting={toggleAccepting}
                 onLogin={(id) => attempt(api.loginAccount(id))}
                 onOpenTerminal={(id) => attempt(api.openAccountTerminal(id))}
@@ -90,11 +130,13 @@ export function App() {
           accountName={state.accounts.find((a) => a.id === opened.accountId)?.name ?? "deleted account"}
           now={now}
           events={events[opened.id]}
+          caller={callerOf(opened, state)}
           onClose={() => setOpenId(undefined)}
           onStop={stop}
           onRetry={retry}
           onTerminal={(id) => attempt(api.openInTerminal(id))}
           onOpenLink={(url) => attempt(api.openExternal(url))}
+          onFocusSession={focusSession}
         />
       )}
       <Toasts toasts={toasts} onDismiss={dismiss} />

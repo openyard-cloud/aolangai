@@ -1,6 +1,7 @@
 import { expect, test } from "vitest";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
+import type { Run } from "@aolangai/core";
 import type { AppState } from "../../shared/api.js";
 import { account, appState, run, status } from "../testing.js";
 import type { OpenSession } from "../../shared/api.js";
@@ -10,10 +11,10 @@ import { AccountLane } from "./AccountLane.js";
 const at = (h: number, m = 0) => new Date(2026, 10, 17, h, m).getTime();
 const NOW = at(12, 0);
 
-function html(s: Partial<AppState>, steps: Record<number, string | undefined> = {}): string {
+function html(s: Partial<AppState>, steps: Record<number, string | undefined> = {}, callerLabel?: (r: Run) => string | undefined): string {
   const lane = lanes(appState(s))[0]!;
   return renderToStaticMarkup(
-    createElement(AccountLane, { lane, now: NOW, steps, onToggleAccepting: () => {}, onLogin: () => {}, onOpenTerminal: () => {}, onOpenRun: () => {}, onFocusSession: () => {} }),
+    createElement(AccountLane, { lane, now: NOW, steps, callerLabel, onToggleAccepting: () => {}, onLogin: () => {}, onOpenTerminal: () => {}, onOpenRun: () => {}, onFocusSession: () => {} }),
   );
 }
 
@@ -133,4 +134,15 @@ test("open sessions: an 'Open now' line and one row per session, only when the l
 test("a session opened the day before shows the date, relative to the lane's now", () => {
   const old: OpenSession = { pid: 3, kind: "Terminal", accountId: "a1", cwd: "/Users/x/p", tty: "ttys003", startedAt: at(9, 5) - 24 * 3600_000 };
   expect(html({ accounts: [account()], sessions: [old] })).toContain("since 09:05 16 Nov");
+});
+
+test("a run row says which session asked for it, as text; none when the caller is not known", () => {
+  const runs = [run({ id: 5, status: "done", createdAt: NOW - 60_000, finishedAt: NOW })];
+  const h = html({ accounts: [account()], runs }, {}, () => "Personal · notes");
+  expect(h).toContain('<span class="run-from">from Personal · notes</span>');
+  expect(html({ accounts: [account()], runs }, {}, () => undefined)).not.toContain("run-from");
+  expect(html({ accounts: [account()], runs })).not.toContain("run-from");
+  const tag = html({ accounts: [account()], runs }, {}, () => "<b>x</b>");
+  expect(tag).not.toContain("<b>x</b>");
+  expect(tag).toContain("from &lt;b&gt;x&lt;/b&gt;");
 });
