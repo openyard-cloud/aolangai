@@ -146,3 +146,12 @@ test("mapDetail: the Unknown node collects deleted-account and API-key callers; 
   expect(groups.map((g) => g.caller.key)).toEqual(["100:5000", "300:5000"]);
   expect(groups.flatMap((g) => g.byWorker.flatMap((w) => w.runs.map((r) => r.id)))).toEqual([1, 2]);
 });
+
+test("a run on a deleted worker account makes no edge and no detail group", () => {
+  const s = appState({ accounts, runs: [via(1, "personal", "gone"), via(2, "gone", "work", { callerPid: 300 }), via(3, "personal", "work")] });
+  expect(mapEdges(s, NOW).map((e) => `${e.from}>${e.to}`)).toEqual(["personal>work", `${UNKNOWN_NODE}>work`]);
+  const groups = mapDetail(s, NOW, "personal");
+  expect(groups).toHaveLength(1);
+  expect(groups[0].byWorker.map((w) => w.accountId)).toEqual(["work"]);
+  expect(mapDetail(s, NOW, "personal", "gone")).toEqual([]);
+});

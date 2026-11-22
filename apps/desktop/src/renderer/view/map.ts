@@ -49,9 +49,10 @@ const newestFirst = (a: Run, b: Run) => b.createdAt - a.createdAt || b.id - a.id
 /** The caller's account, or UNKNOWN_NODE: a deleted account, an API-key caller and an undeclared desktop all land there. */
 const fromOf = (run: Run, s: AppState) => callerOf(run, s)?.accountId ?? UNKNOWN_NODE;
 
-/** Runs of the last 24 hours that record a caller, newest first. */
+/** Runs of the last 24 hours that record a caller, newest first. A run on a deleted worker account is left out: it has no node to draw, and the lanes hide it too. */
 function windowRuns(s: AppState, now: number): Run[] {
-  return s.runs.filter((r) => callerOf(r, s) !== undefined && r.createdAt >= now - MAP_WINDOW_MS).sort(newestFirst);
+  const workers = new Set(s.accounts.map((a) => a.id));
+  return s.runs.filter((r) => workers.has(r.accountId) && callerOf(r, s) !== undefined && r.createdAt >= now - MAP_WINDOW_MS).sort(newestFirst);
 }
 
 /** One edge per (caller account, worker account), sorted by caller then worker in account order. A self-edge has from === to. */
@@ -114,7 +115,7 @@ export function mapDetail(s: AppState, now: number, accountId: string, to?: stri
       caller,
       byWorker: workers.map((id) => ({
         accountId: id,
-        accountName: s.accounts.find((a) => a.id === id)?.name ?? "deleted account",
+        accountName: s.accounts.find((a) => a.id === id)?.name ?? id,
         runs: runs.filter((r) => r.accountId === id),
       })),
     };
