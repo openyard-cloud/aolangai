@@ -141,6 +141,46 @@ test("the walk stops at launchd: pid 1 is never asked for", () => {
   expect(ps.calls.some((a) => a.includes("-p") && a[a.indexOf("-p") + 1] === "1")).toBe(false);
 });
 
+/** A ps over `rows` with a clock that moves 100 ms on every call. */
+function slowPs(rows: Row[]) {
+  const clock = { t: 0 };
+  const inner = fakePs(rows);
+  const ps: PsRun = (args) => {
+    clock.t += 100;
+    return inner(args);
+  };
+  return { ps, now: () => clock.t, calls: inner.calls };
+}
+
+test("the deadline passing before the caller is found: undefined, and no ps call after it", () => {
+  const { ps, now, calls } = slowPs(terminalChain());
+  // Calls start at 0 and 100 ms; the third (pid 80, the claude) would start at 200 ms, past the 150 ms budget.
+  expect(findCaller({ selfPid: 100, env: {}, accounts, ps, now, budgetMs: 150 })).toBeUndefined();
+  expect(calls).toHaveLength(2);
+});
+
+test("the deadline passing while ancestors are collected: the caller, with the kind from the partial chain", () => {
+  const { ps, now, calls } = slowPs(terminalChain());
+  // Calls at 0, 100 and 200 ms find the claude (pid 80); its ancestors up to Terminal would need three more.
+  expect(findCaller({ selfPid: 100, env: {}, accounts, ps, now, budgetMs: 250 })).toEqual({ pid: 80, startedAt: startOf(80), kind: "other", accountId: "p" });
+  expect(calls).toHaveLength(3);
+  // With room for the whole chain, the same walk reaches Terminal.
+  const roomy = slowPs(terminalChain());
+  expect(findCaller({ selfPid: 100, env: {}, accounts, ps: roomy.ps, now: roomy.now, budgetMs: 1000 })?.kind).toBe("Terminal");
+});
+
+test("the deadline also bounds the command-line lookup of a node ancestor", () => {
+  const rows: Row[] = [
+    { pid: 100, ppid: 90, comm: "/bin/zsh" },
+    { pid: 90, ppid: 80, comm: "/opt/homebrew/bin/node", args: "node /x/@anthropic-ai/claude-code/cli.js" },
+    { pid: 80, ppid: 1, comm: TERMINAL },
+  ];
+  const { ps, now, calls } = slowPs(rows);
+  // Calls at 0 and 100 ms; the `-ww` lookup of pid 90 would start at 200 ms.
+  expect(findCaller({ selfPid: 100, env: {}, accounts, ps, now, budgetMs: 150 })).toBeUndefined();
+  expect(calls.some((a) => a.includes("-ww"))).toBe(false);
+});
+
 test("callerAccount: a present variable counts even when empty or blank", () => {
   expect(callerAccount({ CLAUDE_CONFIG_DIR: "" }, accounts)).toBeUndefined();
   expect(callerAccount({ CLAUDE_CONFIG_DIR: "  " }, accounts)).toBeUndefined();

@@ -5,9 +5,9 @@ import { DESKTOP_KIND, accountForConfigDir, hostOf, isClaudeBinary, isClaudeComm
 /** Runs `/bin/ps` with the args; its stdout, or undefined when it could not run. */
 export type PsRun = (args: string[]) => string | undefined;
 
-/** Exit 1 counts as success: `ps -p` uses it when the asked-for pid does not exist. English month names (LC_TIME=C) and UTC, as `parsePs` expects; the same env as the app's session scan, so both read a path the same way. */
+/** Exit 1 counts as success: `ps -p` uses it when the asked-for pid does not exist. A short timeout: `findCaller` has a budget for all calls. English month names (LC_TIME=C) and UTC, as `parsePs` expects; the same env as the app's session scan, so both read a path the same way. */
 export const realPs: PsRun = (args) => {
-  const r = spawnSync("/bin/ps", args, { encoding: "utf8", env: { LC_CTYPE: "UTF-8", LC_TIME: "C", TZ: "UTC" }, timeout: 2000, maxBuffer: 1024 * 1024 });
+  const r = spawnSync("/bin/ps", args, { encoding: "utf8", env: { LC_CTYPE: "UTF-8", LC_TIME: "C", TZ: "UTC" }, timeout: 500, maxBuffer: 1024 * 1024 });
   // A spawn error or a timeout kill leaves no exit status.
   return r.status === 0 || r.status === 1 ? r.stdout : undefined;
 };
@@ -46,10 +46,24 @@ function isClaudeCode(ps: PsRun, proc: Proc): boolean {
  * there is none. The account comes from `env` (this process inherited it from that session) and is unknown for
  * a desktop session, whose environment is not ours. Never reads another process's environment.
  * `maxDepth` caps the pids looked up above `selfPid`, the caller's own ancestors (for its host) included.
+ * `budgetMs` (by `now`) bounds the whole walk, so a slow `ps` never holds up the command: no `ps` call starts after
+ * it; by then without the caller, undefined, and with it, the host is told from the ancestors collected so far.
  */
-export function findCaller(o: { selfPid: number; env: NodeJS.ProcessEnv; accounts: Account[]; ps?: PsRun; maxDepth?: number }): Caller | undefined {
+export function findCaller(o: {
+  selfPid: number;
+  env: NodeJS.ProcessEnv;
+  accounts: Account[];
+  ps?: PsRun;
+  maxDepth?: number;
+  now?: () => number;
+  budgetMs?: number;
+}): Caller | undefined {
   try {
-    const ps = o.ps ?? realPs;
+    const now = o.now ?? Date.now;
+    const deadline = now() + (o.budgetMs ?? 1000);
+    const run = o.ps ?? realPs;
+    // Past the deadline every lookup comes back empty, which ends the walk like a missing process.
+    const ps: PsRun = (args) => (now() < deadline ? run(args) : undefined);
     const self = lookup(ps, o.selfPid);
     if (!self) return undefined;
     const byPid = new Map<number, Proc>();
