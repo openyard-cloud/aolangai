@@ -82,6 +82,8 @@ export interface Run {
   contextTokens?: number;
   createdAt: number;
   finishedAt?: number;
+  /** When the owner hid the finished run from its lane (ms). The Map still counts it. */
+  hiddenAt?: number;
 }
 /** A Claude Code session found above the process that ran `aolangai run`. */
 export interface Caller {

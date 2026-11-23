@@ -27,6 +27,10 @@ export interface Repos {
     lastPrimary(accountId: string, cwd: string): Run | undefined;
     /** Newest running run of (account, cwd) with primaryWorker, with or without a sessionId yet. */
     runningPrimary(accountId: string, cwd: string): Run | undefined;
+    /** Sets hiddenAt on those of `ids` that are finished and not hidden yet; returns how many changed. */
+    hide(ids: number[], at: number): number;
+    /** Sets hiddenAt on every finished, not yet hidden run of the account; returns how many changed. */
+    hideFinished(accountId: string, at: number): number;
   };
   runEvents: { add(runId: number, kind: RunEvent["kind"], text: string, at: number): void; list(runId: number): RunEvent[] };
   settings: {
@@ -96,7 +100,7 @@ const RUN_COLS: Columns<Run> = {
   status: "text", result: "text", error: "text", denials: "json", note: "text", pid: "int", pidStart: "text",
   workerPid: "int", workerPidStart: "text", retryOf: "int",
   callerPid: "int", callerStartedAt: "int", callerKind: "text", callerAccountId: "text",
-  inputTokens: "int", outputTokens: "int", contextTokens: "int", createdAt: "int", finishedAt: "int",
+  inputTokens: "int", outputTokens: "int", contextTokens: "int", createdAt: "int", finishedAt: "int", hiddenAt: "int",
 };
 const EVENT_COLS: Columns<RunEvent> = { id: "int", runId: "int", kind: "text", text: "text", createdAt: "int" };
 
@@ -173,6 +177,13 @@ export function createRepos(db: Db): Repos {
         runRows("SELECT * FROM runs WHERE account_id = ? AND cwd = ? AND primary_worker = 1 AND session_id IS NOT NULL ORDER BY id DESC LIMIT 1", accountId, cwd)[0],
       runningPrimary: (accountId, cwd) =>
         runRows("SELECT * FROM runs WHERE account_id = ? AND cwd = ? AND primary_worker = 1 AND status = 'running' ORDER BY id DESC LIMIT 1", accountId, cwd)[0],
+      hide(ids, at) {
+        if (ids.length === 0) return 0;
+        const sql = `UPDATE runs SET hidden_at = ? WHERE id IN (${ids.map(() => "?").join(", ")}) AND status != 'running' AND hidden_at IS NULL`;
+        return Number(db.prepare(sql).run(at, ...ids).changes);
+      },
+      hideFinished: (accountId, at) =>
+        Number(db.prepare("UPDATE runs SET hidden_at = ? WHERE account_id = ? AND status != 'running' AND hidden_at IS NULL").run(at, accountId).changes),
     },
     runEvents: {
       add: (runId, kind, text, at) =>

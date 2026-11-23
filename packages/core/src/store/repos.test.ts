@@ -88,6 +88,32 @@ test("runs.running returns only running rows; recent is newest first and cut by 
   expect(r.runs.recent(100)).toHaveLength(5);
 });
 
+test("runs.hide sets hiddenAt on finished runs only, skips running and already hidden ones, returns the count", () => {
+  const r = mem();
+  const done = r.runs.insert(run({ status: "done" })).id;
+  const failed = r.runs.insert(run({ status: "failed" })).id;
+  const running = r.runs.insert(run({ status: "running" })).id;
+  const hidden = r.runs.insert(run({ status: "stopped", hiddenAt: 7 })).id;
+  expect(r.runs.hide([done, failed, running, hidden, 999], 50)).toBe(2);
+  expect([done, failed, running, hidden].map((id) => r.runs.get(id)?.hiddenAt)).toEqual([50, 50, undefined, 7]);
+  expect(r.runs.hide([done], 60)).toBe(0);
+  expect(r.runs.hide([], 60)).toBe(0);
+  expect(r.runs.get(done)?.hiddenAt).toBe(50);
+});
+
+test("runs.hideFinished hides every finished, not yet hidden run of that account only, returns the count", () => {
+  const r = mem();
+  const mine = (["done", "failed", "limited", "stopped"] as const).map((status) => r.runs.insert(run({ status })).id);
+  const running = r.runs.insert(run({ status: "running" })).id;
+  const hidden = r.runs.insert(run({ status: "done", hiddenAt: 7 })).id;
+  const other = r.runs.insert(run({ status: "done", accountId: "a2" })).id;
+  expect(r.runs.hideFinished("a1", 50)).toBe(4);
+  expect(mine.map((id) => r.runs.get(id)?.hiddenAt)).toEqual([50, 50, 50, 50]);
+  expect([running, hidden, other].map((id) => r.runs.get(id)?.hiddenAt)).toEqual([undefined, 7, undefined]);
+  expect(r.runs.hideFinished("a1", 60)).toBe(0);
+  expect(r.runs.hideFinished("nobody", 60)).toBe(0);
+});
+
 test("runs.countSince counts by createdAt, including the exact boundary", () => {
   const r = mem();
   for (const createdAt of [100, 200, 300]) r.runs.insert(run({ createdAt }));

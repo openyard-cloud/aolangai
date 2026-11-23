@@ -96,8 +96,17 @@ test("a fresh DB has every table and reopens", () => {
 
 test("migration 7 adds the caller columns", () => {
   const db = openDb(":memory:");
-  expect(db.prepare("PRAGMA user_version").get()).toEqual({ user_version: 7 });
+  expect(db.prepare("PRAGMA user_version").get()).toEqual({ user_version: MIGRATIONS.length });
   const cols = (db.prepare("PRAGMA table_info(runs)").all() as { name: string }[]).map((c) => c.name);
   expect(cols).toEqual(expect.arrayContaining(["caller_pid", "caller_started_at", "caller_kind", "caller_account_id"]));
+  db.close();
+});
+
+test("migration 8 adds hidden_at to runs", () => {
+  const db = openDb(":memory:");
+  expect(MIGRATIONS).toHaveLength(8);
+  expect(db.prepare("PRAGMA user_version").get()).toEqual({ user_version: 8 });
+  const cols = (db.prepare("PRAGMA table_info(runs)").all() as { name: string }[]).map((c) => c.name);
+  expect(cols).toContain("hidden_at");
   db.close();
 });

@@ -94,6 +94,8 @@ export const MIGRATIONS: string[] = [
   // 7: the Claude Code session that called `aolangai run`, for the delegation map.
   `ALTER TABLE runs ADD COLUMN caller_pid INTEGER; ALTER TABLE runs ADD COLUMN caller_started_at INTEGER;
    ALTER TABLE runs ADD COLUMN caller_kind TEXT; ALTER TABLE runs ADD COLUMN caller_account_id TEXT;`,
+  // 8: when the owner hid a finished run from its lane; the row stays.
+  `ALTER TABLE runs ADD COLUMN hidden_at INTEGER;`,
 ];
 
 /** Opens (or creates) the database and brings its schema up to date. Use ":memory:" in tests. */
