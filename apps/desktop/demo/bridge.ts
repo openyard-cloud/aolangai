@@ -126,6 +126,13 @@ export function createDemoBridge(sample: AppState, opts: DemoOptions = {}): Aola
     });
   };
 
+  /** Hides the finished, not yet hidden runs among `list`, as the store does; pushes when any changed. */
+  const hide = (list: Run[]) => {
+    const hiding = list.filter((r) => r.status !== "running" && r.hiddenAt === undefined);
+    for (const r of hiding) r.hiddenAt = now();
+    if (hiding.length > 0) push();
+    return hiding.length;
+  };
   const stop = (r: Run) => Object.assign(r, { status: "stopped", finishedAt: now() });
   /** Claude desktop sessions belong to the account the owner declared, or to no lane. */
   const assignDesktop = () => {
@@ -275,6 +282,16 @@ export function createDemoBridge(sample: AppState, opts: DemoOptions = {}): Aola
     async openInTerminal(runId) {
       runOrThrow(runId);
       explain(MACHINE_NOTICE.openInTerminal);
+    },
+
+    async hideRun(id) {
+      if (!Number.isInteger(id) || id <= 0) throw new Error("Invalid run id");
+      return hide(state.runs.filter((r) => r.id === id));
+    },
+
+    async clearFinished(accountId) {
+      if (typeof accountId !== "string" || !state.accounts.some((a) => a.id === accountId)) throw new Error("This account no longer exists (it may have just been deleted)");
+      return hide(state.runs.filter((r) => r.accountId === accountId));
     },
 
     async setLimits(l: Limits) {

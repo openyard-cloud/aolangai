@@ -3,7 +3,7 @@ import { DEFAULT_LIMITS } from "@aolangai/core";
 import { API_METHODS, DESKTOP_KIND, TERMINAL_KIND, type ApiMethod, type AppNotice, type AppState } from "../src/shared/api.js";
 import { callerOf } from "../src/renderer/view/callers.js";
 import { mapEdges } from "../src/renderer/view/map.js";
-import { needsYou } from "../src/renderer/view/runs.js";
+import { lanes, needsYou } from "../src/renderer/view/runs.js";
 import { outside } from "../src/renderer/view/sessions.js";
 import { MACHINE_ONLY, RETRY_MS, TERMINAL_DELAY_MS, createDemoBridge } from "./bridge.js";
 import { STATIC_NOW, sampleEvents, samplePlans, sampleState } from "./sample.js";
@@ -216,6 +216,29 @@ describe("createDemoBridge", () => {
     await expect(bridge.invoke("retryRun", 9999)).rejects.toThrow("No run #9999");
   });
 
+  test("hideRun hides a finished run of the sample: out of its lane and Needs you, still in the state; a running run is not hidden", async () => {
+    const { bridge, last } = setup();
+    expect(await bridge.invoke("hideRun", 43)).toBe(1);
+    expect(runOf(last(), 43)!.hiddenAt).toBe(NOW);
+    expect(needsYou(last(), NOW).some((a) => a.kind === "failed")).toBe(false);
+    expect(lanes(last()).find((l) => l.account.id === "side")!.recent.map((r) => r.id)).toEqual([44]);
+    expect(await bridge.invoke("hideRun", 43)).toBe(0);
+    expect(await bridge.invoke("hideRun", 47)).toBe(0);
+    expect(runOf(last(), 47)!.hiddenAt).toBeUndefined();
+    await expect(bridge.invoke("hideRun", 0)).rejects.toThrow("Invalid run id");
+  });
+
+  test("clearFinished hides every finished run of that account only, and says how many", async () => {
+    const { bridge, last } = setup();
+    expect(await bridge.invoke("clearFinished", "work")).toBe(2);
+    const work = lanes(last()).find((l) => l.account.id === "work")!;
+    expect(work.recent).toEqual([]);
+    expect(work.running.map((r) => r.id)).toEqual([47]);
+    expect(lanes(last()).find((l) => l.account.id === "side")!.recent.map((r) => r.id)).toEqual([44, 43]);
+    expect(await bridge.invoke("clearFinished", "work")).toBe(0);
+    await expect(bridge.invoke("clearFinished", "nobody")).rejects.toThrow("This account no longer exists");
+  });
+
   test("setDesktopAccount(null) moves the Claude desktop sessions out of the lane, and back", async () => {
     const { bridge, last, sample } = setup();
     await bridge.invoke("setDesktopAccount", null);
@@ -316,6 +339,8 @@ describe("createDemoBridge", () => {
       stopAll: [],
       retryRun: [43],
       openInTerminal: [46],
+      hideRun: [46],
+      clearFinished: ["work"],
       setLimits: [DEFAULT_LIMITS],
       setDesktopAccount: [null],
       install: [],

@@ -85,6 +85,10 @@ export interface AppApi {
   stopAll(): Promise<number>;
   retryRun(id: number): Promise<void>;
   openInTerminal(runId: number): Promise<void>;
+  /** Hides a finished run from its lane and from Needs you (the row stays); resolves with how many runs it hid (0 or 1). */
+  hideRun(id: number): Promise<number>;
+  /** Hides every finished, not yet hidden run of the account, also those beyond the state's 200; resolves with how many. */
+  clearFinished(accountId: string): Promise<number>;
   setLimits(l: Limits): Promise<void>;
   /** Declares which account Claude desktop is logged into (null = none); refused unless it is an existing account. */
   setDesktopAccount(id: string | null): Promise<void>;
@@ -111,6 +115,8 @@ export const API_METHODS = [
   "stopAll",
   "retryRun",
   "openInTerminal",
+  "hideRun",
+  "clearFinished",
   "setLimits",
   "setDesktopAccount",
   "install",

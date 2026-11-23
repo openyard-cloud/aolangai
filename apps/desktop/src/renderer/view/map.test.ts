@@ -35,6 +35,11 @@ test("mapEdges: one edge per (from, to), counting running and failed runs, in ac
   expect(edges[0].runs.map((r) => r.id)).toEqual([1, 2]);
 });
 
+test("mapEdges: a run hidden from its lane is still counted", () => {
+  const s = appState({ accounts, runs: [via(1, "personal", "work", { status: "failed", hiddenAt: NOW }), via(2, "personal", "work", { status: "done", hiddenAt: NOW, createdAt: NOW - 2 * HOUR })] });
+  expect(mapEdges(s, NOW).map((e) => ({ failed: e.failed, runs: e.runs.map((r) => r.id) }))).toEqual([{ failed: 1, runs: [1, 2] }]);
+});
+
 test("mapEdges: a limited run counts as failed", () => {
   const s = appState({ accounts, runs: [via(1, "personal", "work", { status: "limited" }), via(2, "personal", "work", { status: "stopped" })] });
   expect(mapEdges(s, NOW)[0].failed).toBe(1);

@@ -17,10 +17,14 @@ export interface AccountLaneProps {
   onOpenTerminal(accountId: string): void;
   onOpenRun(id: number): void;
   onFocusSession(pid: number): void;
+  /** Hides one finished run from the lane; the run stays in the store. */
+  onHideRun(id: number): void;
+  /** Hides every finished run of the account from the lane, also those not shown. */
+  onClearFinished(accountId: string): void;
 }
 
 /** One account: quota and switches on top, what runs and what just finished underneath. */
-export function AccountLane({ lane, now, steps, callerLabel, onToggleAccepting, onLogin, onOpenTerminal, onOpenRun, onFocusSession }: AccountLaneProps) {
+export function AccountLane({ lane, now, steps, callerLabel, onToggleAccepting, onLogin, onOpenTerminal, onOpenRun, onFocusSession, onHideRun, onClearFinished }: AccountLaneProps) {
   const { account, status } = lane;
   const conn = status?.connection;
   const reserve = reserveWarning(account, status);
@@ -59,9 +63,16 @@ export function AccountLane({ lane, now, steps, callerLabel, onToggleAccepting, 
         </div>
       )}
       <div className="lane-runs">
-        {lane.running.map((r) => <RunRow key={r.id} run={r} now={now} step={steps[r.id]} from={callerLabel?.(r)} onOpen={onOpenRun} />)}
-        {lane.recent.map((r) => <RunRow key={r.id} run={r} now={now} from={callerLabel?.(r)} onOpen={onOpenRun} />)}
-        {lane.running.length + lane.recent.length === 0 && <div className="lane-empty">No runs yet</div>}
+        {lane.recent.length > 0 && (
+          <div className="lane-runs-head">
+            <button type="button" className="small" title="Hide every finished run of this account from the lane" onClick={() => onClearFinished(account.id)}>
+              Clear finished
+            </button>
+          </div>
+        )}
+        {lane.running.map((r) => <RunRow key={r.id} run={r} now={now} step={steps[r.id]} from={callerLabel?.(r)} onOpen={onOpenRun} onHide={onHideRun} />)}
+        {lane.recent.map((r) => <RunRow key={r.id} run={r} now={now} from={callerLabel?.(r)} onOpen={onOpenRun} onHide={onHideRun} />)}
+        {lane.running.length + lane.recent.length === 0 && <div className="lane-empty">No recent runs</div>}
       </div>
     </section>
   );

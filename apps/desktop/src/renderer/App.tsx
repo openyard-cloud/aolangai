@@ -13,7 +13,7 @@ import { useNow, useRunEvents } from "./state/polling.js";
 import { api, useAppState, useNotices, useToasts } from "./state/store.js";
 import { callerOf } from "./view/callers.js";
 import { lanes, needsYou } from "./view/runs.js";
-import { needsYouCount, runningCount, stopAllQuestion } from "./view/format.js";
+import { count, needsYouCount, runningCount, stopAllQuestion } from "./view/format.js";
 import { outside } from "./view/sessions.js";
 
 export function App() {
@@ -31,14 +31,17 @@ export function App() {
   const { events, steps } = useRunEvents(running.map((r) => r.id), opened?.id, feedback.report);
   const needs = state ? needsYou(state, now) : [];
 
-  /** A call whose failure the human must see; `done` runs after it succeeded. */
-  const attempt = (p: Promise<unknown>, done?: () => void) => void p.then(done).catch(feedback.report);
+  /** A call whose failure the human must see; `done` runs with its result after it succeeded. */
+  const attempt = <T,>(p: Promise<T>, done?: (result: T) => void) => void p.then(done).catch(feedback.report);
   const stopAll = () => {
     if (window.confirm(stopAllQuestion(running.length))) attempt(api.stopAll());
   };
   const toggleAccepting = (a: Account) => attempt(api.saveAccount({ ...a, accepting: !a.accepting }));
   const retry = (id: number) => attempt(api.retryRun(id), () => feedback.notify(`Sent the retry request for run #${id}`));
   const stop = (id: number) => attempt(api.stopRun(id), () => feedback.notify(`Sent the stop signal to run #${id}`));
+  // No toast when nothing changed (the run started again or was already hidden); the state push shows the lane as it is.
+  const hideRun = (id: number) => attempt(api.hideRun(id), (n) => n > 0 && feedback.notify(`Hid run #${id}`));
+  const clearFinished = (accountId: string) => attempt(api.clearFinished(accountId), (n) => n > 0 && feedback.notify(`Hid ${count(n, "run")}`));
 
   const focusSession = (pid: number) => attempt(api.focusSession(pid));
   const showMap = () => {
@@ -110,6 +113,8 @@ export function App() {
                 onOpenTerminal={(id) => attempt(api.openAccountTerminal(id))}
                 onOpenRun={setOpenId}
                 onFocusSession={focusSession}
+                onHideRun={hideRun}
+                onClearFinished={clearFinished}
               />
             ))}
             <OutsideSessions {...outside(state)} now={now} onFocus={focusSession} />

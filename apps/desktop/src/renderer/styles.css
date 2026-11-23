@@ -97,8 +97,16 @@ button.small { padding: 0 6px; font-size: 12px; }
 .outside-sessions > summary { cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .lane-runs { display: flex; flex-direction: column; margin-top: 6px; border-top: 1px solid var(--border); padding-top: 4px; }
 .lane-empty { color: var(--muted); font-size: 12px; padding: 4px 0; }
-.run-row { display: grid; grid-template-columns: 10px minmax(0, 3fr) minmax(0, 1.4fr) 72px minmax(0, 2fr); gap: 4px 10px; align-items: center; width: 100%; text-align: left; border: none; border-radius: 6px; background: transparent; padding: 4px 6px; }
-.run-row:hover { background: color-mix(in srgb, var(--text) 6%, transparent); }
+.lane-runs-head { display: flex; justify-content: flex-end; }
+/* A run row plus, on a lane, its hide button (or an empty slot as wide) beside it. */
+.run-line { display: flex; align-items: center; min-width: 0; border-radius: 6px; }
+.run-line:hover { background: color-mix(in srgb, var(--text) 6%, transparent); }
+.run-row { flex: 1; min-width: 0; display: grid; grid-template-columns: 10px minmax(0, 3fr) minmax(0, 1.4fr) 72px minmax(0, 2fr); gap: 4px 10px; align-items: center; text-align: left; border: none; border-radius: 6px; background: transparent; padding: 4px 6px; }
+.run-hide, .run-hide-slot { flex: none; width: 22px; }
+/* In the DOM always, so the keyboard reaches it; seen on hover or when focus is in the row. */
+.run-hide { opacity: 0; align-self: stretch; border: none; background: transparent; padding: 0; color: var(--muted); }
+.run-line:hover .run-hide, .run-line:focus-within .run-hide { opacity: 1; }
+.run-hide:hover { color: var(--text); }
 .run-row > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .run-id { color: var(--muted); font-variant-numeric: tabular-nums; }
 .run-folder, .run-time { color: var(--muted); font-size: 12px; }
