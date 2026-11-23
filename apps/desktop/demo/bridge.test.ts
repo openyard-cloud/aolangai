@@ -1,7 +1,9 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { DEFAULT_LIMITS } from "@aolangai/core";
 import { API_METHODS, DESKTOP_KIND, TERMINAL_KIND, type ApiMethod, type AppNotice, type AppState } from "../src/shared/api.js";
-import { needsYou } from "../src/renderer/view/runs.js";
+import { callerOf } from "../src/renderer/view/callers.js";
+import { mapEdges } from "../src/renderer/view/map.js";
+import { lanes, needsYou } from "../src/renderer/view/runs.js";
 import { outside } from "../src/renderer/view/sessions.js";
 import { MACHINE_ONLY, RETRY_MS, TERMINAL_DELAY_MS, createDemoBridge } from "./bridge.js";
 import { STATIC_NOW, sampleEvents, samplePlans, sampleState } from "./sample.js";
@@ -68,6 +70,24 @@ describe("the sample", () => {
     expect(on("Personal").map((x) => x.kind)).toEqual([DESKTOP_KIND, DESKTOP_KIND]);
     expect(s.desktopAccountId).toBe(s.accounts.find((a) => a.name === "Personal")!.id);
     expect(outside(s)).toMatchObject({ desktop: [], unknown: [{}] });
+  });
+
+  test("callers: the runs name the open sessions that delegated them, one comes from a session that has closed, and one has none; the Map has edges to draw", () => {
+    const s = sampleState(NOW);
+    const label = (id: number) => callerOf(runOf(s, id)!, s)?.label;
+    expect([47, 46, 45, 44, 43].map(label)).toEqual([
+      "Personal · app",
+      "Personal · notes",
+      undefined,
+      "Personal · notes",
+      "Work · Terminal",
+    ]);
+    const edges = mapEdges(s, NOW);
+    expect(edges.length).toBeGreaterThanOrEqual(2);
+    // every caller is a known account: the sample has no Unknown caller box
+    expect(edges.every((e) => e.from !== "unknown")).toBe(true);
+    expect(edges.some((e) => e.running > 0)).toBe(true);
+    expect(edges.some((e) => e.failed > 0)).toBe(true);
   });
 
   test("the setup scene has no account yet", () => {
@@ -196,6 +216,29 @@ describe("createDemoBridge", () => {
     await expect(bridge.invoke("retryRun", 9999)).rejects.toThrow("No run #9999");
   });
 
+  test("hideRun hides a finished run of the sample: out of its lane and Needs you, still in the state; a running run is not hidden", async () => {
+    const { bridge, last } = setup();
+    expect(await bridge.invoke("hideRun", 43)).toBe(1);
+    expect(runOf(last(), 43)!.hiddenAt).toBe(NOW);
+    expect(needsYou(last(), NOW).some((a) => a.kind === "failed")).toBe(false);
+    expect(lanes(last()).find((l) => l.account.id === "side")!.recent.map((r) => r.id)).toEqual([44]);
+    expect(await bridge.invoke("hideRun", 43)).toBe(0);
+    expect(await bridge.invoke("hideRun", 47)).toBe(0);
+    expect(runOf(last(), 47)!.hiddenAt).toBeUndefined();
+    await expect(bridge.invoke("hideRun", 0)).rejects.toThrow("Invalid run id");
+  });
+
+  test("clearFinished hides every finished run of that account only, and says how many", async () => {
+    const { bridge, last } = setup();
+    expect(await bridge.invoke("clearFinished", "work")).toBe(2);
+    const work = lanes(last()).find((l) => l.account.id === "work")!;
+    expect(work.recent).toEqual([]);
+    expect(work.running.map((r) => r.id)).toEqual([47]);
+    expect(lanes(last()).find((l) => l.account.id === "side")!.recent.map((r) => r.id)).toEqual([44, 43]);
+    expect(await bridge.invoke("clearFinished", "work")).toBe(0);
+    await expect(bridge.invoke("clearFinished", "nobody")).rejects.toThrow("This account no longer exists");
+  });
+
   test("setDesktopAccount(null) moves the Claude desktop sessions out of the lane, and back", async () => {
     const { bridge, last, sample } = setup();
     await bridge.invoke("setDesktopAccount", null);
@@ -296,6 +339,8 @@ describe("createDemoBridge", () => {
       stopAll: [],
       retryRun: [43],
       openInTerminal: [46],
+      hideRun: [46],
+      clearFinished: ["work"],
       setLimits: [DEFAULT_LIMITS],
       setDesktopAccount: [null],
       install: [],

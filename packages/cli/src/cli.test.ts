@@ -7,7 +7,7 @@ import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import { createRequire } from "node:module";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { createRepos, openDb, processStart, type Account, type Repos, type Run } from "@aolangai/core";
+import { createRepos, openDb, processStart, type Account, type Caller, type Repos, type Run } from "@aolangai/core";
 import { installFakeClaude, type FakeClaude } from "../../core/src/testing/fake-claude.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -60,6 +60,8 @@ beforeEach(() => {
     PATH: `${fake.dir}${path.delimiter}${process.env.PATH ?? ""}`,
     AOLANGAI_DB: dbFile,
     AOLANGAI_NO_QUOTA_REFRESH: "1",
+    // vitest may itself run inside a Claude Code session; no test records it as the caller unless it sets one
+    AOLANGAI_TEST_CALLER: "none",
     FAKE_CLAUDE_LOG: logFile,
     TSX_TSCONFIG_PATH: TSCONFIG,
   });
@@ -301,6 +303,55 @@ describe("run", () => {
     const r = await cli(["run", "x"]);
     expect(r.stderr).not.toContain("ExperimentalWarning");
     expect(r.stderr).not.toContain("--trace-warnings");
+  });
+});
+
+describe("the caller", () => {
+  const CALLER: Caller = { pid: 41, startedAt: 1_700_000_000_000, kind: "Terminal", accountId: "a" };
+  const callerOf = (id: number) => {
+    const r = repos.runs.get(id)!;
+    return { pid: r.callerPid, startedAt: r.callerStartedAt, kind: r.callerKind, accountId: r.callerAccountId };
+  };
+  const as = (c: Caller | "none") => ({ env: { ...env, AOLANGAI_TEST_CALLER: c === "none" ? c : JSON.stringify(c) } });
+  const LIMIT = { lines: [init("s1"), { type: "result", subtype: "success", is_error: true, result: "You've hit your limit · resets 3pm", session_id: "s1" }] };
+
+  it("a run records the caller the finder returns", async () => {
+    const r = await cli(["run", "x"], as(CALLER));
+    expect(r.code).toBe(0);
+    expect(callerOf(1)).toEqual({ pid: 41, startedAt: 1_700_000_000_000, kind: "Terminal", accountId: "a" });
+  });
+
+  it("a retry takes the caller of the run it retries and does not ask the finder", async () => {
+    repos.runs.insert({
+      prompt: "first", cwd: proj, accountId: "a", primaryWorker: true, readOnly: false, status: "failed", createdAt: Date.now(),
+      callerPid: 41, callerStartedAt: 1_700_000_000_000, callerKind: "Terminal", callerAccountId: "a",
+    });
+    const r = await cli(["run", "again", "--retry-of", "1"], as({ pid: 99, startedAt: 1_800_000_000_000, kind: "VS Code" }));
+    expect(r.code).toBe(0);
+    expect(callerOf(2)).toEqual({ pid: 41, startedAt: 1_700_000_000_000, kind: "Terminal", accountId: "a" });
+  });
+
+  it("a failover run keeps the caller", async () => {
+    const dirB = path.join(work, "cfg-b");
+    account("b", { configDir: dirB });
+    script({ byConfigDir: { "": LIMIT, [dirB]: { lines: [init("s2"), text("finishing"), result("s2", "done on B")] } } });
+    const r = await cli(["run", "x"], as(CALLER));
+    expect(r.code).toBe(0);
+    expect(repos.runs.get(1)?.status).toBe("limited");
+    expect(callerOf(1)).toEqual(callerOf(2));
+    expect(callerOf(2).pid).toBe(41);
+  });
+
+  it("without a caller the run has no caller fields", async () => {
+    const r = await cli(["run", "x"], as("none"));
+    expect(r.code).toBe(0);
+    expect(callerOf(1)).toEqual({ pid: undefined, startedAt: undefined, kind: undefined, accountId: undefined });
+  });
+
+  it("a caller that cannot be read never fails the run", async () => {
+    const r = await cli(["run", "x"], { env: { ...env, AOLANGAI_TEST_CALLER: "{not json" } });
+    expect(r.code).toBe(0);
+    expect(callerOf(1).pid).toBeUndefined();
   });
 });
 

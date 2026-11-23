@@ -8,6 +8,8 @@ import {
   findExecutable,
   processStart,
   usedPct,
+  callerOfRun,
+  type Caller,
   type DispatchRequest,
   type Repos,
   type Run,
@@ -47,6 +49,8 @@ export interface RunContext {
   env: NodeJS.ProcessEnv;
   /** The database file; the quota probe folder lives next to it. */
   dbFile: string;
+  /** The Claude Code session that called this command; absent means no caller is recorded. */
+  findCaller?: () => Caller | undefined;
   readStdin(): Promise<string>;
 }
 
@@ -78,6 +82,23 @@ function hangingAsk(marker: string): UsageFetch {
       if (signal.aborted) fail();
       else signal.addEventListener("abort", fail, { once: true });
     });
+}
+
+/**
+ * The caller a run records. A retry (and so a failover, which retries the run that stopped) belongs to the session that
+ * started the task, so it takes that run's caller and never asks the finder. Finding the caller must never fail a run:
+ * any error means no caller.
+ */
+function callerFor(o: RunOptions, c: RunContext): Caller | undefined {
+  try {
+    if (o.retryOf !== undefined) {
+      const earlier = c.repos.runs.get(o.retryOf);
+      return earlier ? callerOfRun(earlier) : undefined;
+    }
+    return c.findCaller?.();
+  } catch {
+    return undefined;
+  }
 }
 
 const SIGNALS = ["SIGINT", "SIGTERM", "SIGHUP"] as const;
@@ -113,6 +134,7 @@ export async function runCommand(o: RunOptions, c: RunContext): Promise<number> 
     fetch = (a, signal) => ask(a, AbortSignal.any([signal, abort.signal]));
   }
 
+  const caller = callerFor(o, c);
   const attempt = (over: Partial<DispatchRequest>) =>
     dispatch(
       {
@@ -132,7 +154,7 @@ export async function runCommand(o: RunOptions, c: RunContext): Promise<number> 
           }
         },
       },
-      { prompt, cwd: o.cwd ?? process.cwd(), label: o.label || undefined, account: o.account, fresh: o.fresh, readOnly: o.readOnly, retryOf: o.retryOf, ...over },
+      { prompt, cwd: o.cwd ?? process.cwd(), label: o.label || undefined, account: o.account, fresh: o.fresh, readOnly: o.readOnly, retryOf: o.retryOf, caller, ...over },
     );
   const refused = (e: unknown) => {
     if (!(e instanceof DispatchRefused)) throw e;

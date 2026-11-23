@@ -758,6 +758,56 @@ test("stopRun and stopAll send SIGTERM to the delegating process that is still a
   expect(await api.stopAll()).toBe(0); // the dead dispatcher's run is failed by now
 });
 
+test("hideRun hides a finished run (the row stays), returns 1 and sends the state; a running or already hidden run gives 0", async () => {
+  const { api, repos, states } = setup();
+  insertAccount(repos);
+  const done = insertRun(repos, { status: "failed" });
+  const running = insertRun(repos, { status: "running" });
+  expect(await dispatch(api, { method: "hideRun", args: [done.id] })).toBe(1);
+  expect(repos.runs.get(done.id)).toMatchObject({ status: "failed", hiddenAt: 1_000_000 });
+  expect(states.at(-1)!.runs.find((r) => r.id === done.id)!.hiddenAt).toBe(1_000_000);
+  expect(await api.hideRun(done.id)).toBe(0);
+  expect(await api.hideRun(running.id)).toBe(0);
+  expect(repos.runs.get(running.id)!.hiddenAt).toBeUndefined();
+});
+
+test.each([["string", ["12"]], ["negative", [-1]], ["fraction", [1.5]], ["zero", [0]], ["missing argument", []], ["NaN", [NaN]], ["null", [null]]])(
+  "dispatch hideRun with id %s is refused and hides nothing",
+  async (_name, args) => {
+    const { api, repos } = setup();
+    insertAccount(repos);
+    const r = insertRun(repos, { status: "done" });
+    await expect(dispatch(api, { method: "hideRun", args })).rejects.toThrow("Invalid run id");
+    expect(repos.runs.get(r.id)!.hiddenAt).toBeUndefined();
+  },
+);
+
+test("clearFinished hides every finished run of the account, beyond the 200 in the state too, returns the count and sends the state", async () => {
+  const { api, repos, states } = setup();
+  insertAccount(repos);
+  insertAccount(repos, { id: "a2", name: "Work" });
+  for (let i = 0; i < 205; i++) insertRun(repos, { createdAt: i });
+  const running = insertRun(repos, { status: "running" });
+  const other = insertRun(repos, { accountId: "a2" });
+  expect(await dispatch(api, { method: "clearFinished", args: ["a1"] })).toBe(205);
+  expect(repos.db.prepare("SELECT COUNT(*) AS n FROM runs WHERE account_id = 'a1' AND hidden_at IS NULL").get()).toEqual({ n: 1 });
+  expect(repos.runs.get(running.id)!.hiddenAt).toBeUndefined();
+  expect(repos.runs.get(other.id)!.hiddenAt).toBeUndefined();
+  expect(states.at(-1)!.runs.filter((r) => r.accountId === "a1" && r.status !== "running").every((r) => r.hiddenAt === 1_000_000)).toBe(true);
+  expect(await api.clearFinished("a1")).toBe(0);
+});
+
+test.each([["unknown account", ["nobody"]], ["number", [5]], ["missing argument", []], ["null", [null]]])(
+  "dispatch clearFinished with %s is refused and hides nothing",
+  async (_name, args) => {
+    const { api, repos } = setup();
+    insertAccount(repos);
+    const r = insertRun(repos, { status: "done" });
+    await expect(dispatch(api, { method: "clearFinished", args })).rejects.toThrow("This account no longer exists");
+    expect(repos.runs.get(r.id)!.hiddenAt).toBeUndefined();
+  },
+);
+
 test("sweep: a lost dispatcher is marked failed and the state is sent", async () => {
   const { api, repos, states } = setup();
   insertAccount(repos);

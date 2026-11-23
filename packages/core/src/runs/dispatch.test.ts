@@ -160,6 +160,16 @@ describe("dispatch: choosing and running", () => {
     expect(run.workerPidStart).toMatch(/\d{2}:\d{2}:\d{2}/);
   });
 
+  it("dispatch records the request's caller", async () => {
+    addAccount("a");
+    usage = { a: 10 };
+    const T = 1_700_000_000_000;
+    const withCaller = await dispatch(deps(), req({ caller: { pid: 41, startedAt: T, kind: "Terminal", accountId: "a1" } }));
+    expect(withCaller).toMatchObject({ callerPid: 41, callerStartedAt: T, callerKind: "Terminal", callerAccountId: "a1" });
+    const without = await dispatch(deps(), req());
+    for (const k of ["callerPid", "callerStartedAt", "callerKind", "callerAccountId"]) expect(without).not.toHaveProperty(k);
+  });
+
   it("resumes the folder's worker within 60 minutes, but not with fresh", async () => {
     addAccount("a");
     usage = { a: 10 };

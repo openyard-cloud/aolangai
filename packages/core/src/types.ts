@@ -72,12 +72,34 @@ export interface Run {
   workerPid?: number;
   workerPidStart?: string;
   retryOf?: number;
+  /** The Claude Code session that called `aolangai run` (`startedAt` is its process start, so a reused pid is told apart). */
+  callerPid?: number;
+  callerStartedAt?: number;
+  callerKind?: string;
+  callerAccountId?: string;
   inputTokens?: number;
   outputTokens?: number;
   contextTokens?: number;
   createdAt: number;
   finishedAt?: number;
+  /** When the owner hid the finished run from its lane (ms). The Map still counts it. */
+  hiddenAt?: number;
 }
+/** A Claude Code session found above the process that ran `aolangai run`. */
+export interface Caller {
+  pid: number;
+  startedAt: number;
+  /** What the session runs in, for example "Terminal". */
+  kind: string;
+  accountId?: string;
+}
+
+/** The caller recorded on a run; undefined for runs from before callers were recorded or started outside a session. */
+export function callerOfRun(r: Run): Caller | undefined {
+  if (r.callerPid === undefined || r.callerStartedAt === undefined || r.callerKind === undefined) return undefined;
+  return { pid: r.callerPid, startedAt: r.callerStartedAt, kind: r.callerKind, ...(r.callerAccountId !== undefined ? { accountId: r.callerAccountId } : {}) };
+}
+
 export interface RunEvent {
   id: number;
   runId: number;

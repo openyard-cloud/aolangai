@@ -477,6 +477,20 @@ export function createApi(deps: ApiDeps): MainApi {
       await deps.runOsascript(resumeOsascriptArgs(account.configDir, claudeOrThrow(), run.cwd, run.sessionId));
     },
 
+    hideRun: (id) =>
+      written(() => {
+        if (!Number.isInteger(id) || id <= 0) throw new Error("Invalid run id");
+        return repos.runs.hide([id], deps.now());
+      }),
+
+    clearFinished: (accountId) =>
+      written(() =>
+        repos.tx(() => {
+          if (typeof accountId !== "string" || !repos.accounts.get(accountId)) throw new Error("This account no longer exists (it may have just been deleted)");
+          return repos.runs.hideFinished(accountId, deps.now());
+        }),
+      ),
+
     setLimits: (l) =>
       written(() => {
         const errors = validateLimits(l);

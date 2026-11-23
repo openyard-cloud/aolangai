@@ -81,13 +81,13 @@ footer a { color: var(--text); }
 <main>
 <div class="wrap">
 <h1>Privacy policy</h1>
-<p class="muted">Last updated: 19 November 2026</p>
+<p class="muted">Last updated: 23 November 2026</p>
 
 <p>aolangai is a macOS app and a command, <code>aolangai</code>, that run on your Mac. This page lists what they read and write there, what leaves your Mac, and what this website does.</p>
 
 <h2>What the app and the command keep</h2>
 <ul>
-<li>The data store, <code>~/Library/Application Support/aolangai/aolangai.db</code> (or the path in <code>AOLANGAI_DB</code>): your accounts, the history of delegated runs, and the settings. The same folder holds <code>profiles/</code>, the config dirs of accounts created with <b>let the app create its own folder (auto)</b>; <code>window-state.json</code>, the window's size and position; <code>quota-probe/</code>, an empty folder used as the working folder when the app asks for quota; and Electron's own files.</li>
+<li>The data store, <code>~/Library/Application Support/aolangai/aolangai.db</code> (or the path in <code>AOLANGAI_DB</code>): your accounts, the history of delegated runs, and the settings. A run in that history includes the process id, start time, account and host app kind (for example Terminal or Claude desktop) of the Claude Code session that delegated it, when the command could tell; no command line and no environment value is stored with it. The same folder holds <code>profiles/</code>, the config dirs of accounts created with <b>let the app create its own folder (auto)</b>; <code>window-state.json</code>, the window's size and position; <code>quota-probe/</code>, an empty folder used as the working folder when the app asks for quota; and Electron's own files.</li>
 <li>The skill, <code>skills/aolangai/SKILL.md</code>, in <code>~/.claude</code> and in the config dir of each account that has its own.</li>
 <li>The command, <code>~/.local/bin/aolangai</code>, a small shell script that runs the command's code inside <code>aolangai.app</code> (or, when installed from source, in the repository).</li>
 </ul>
@@ -98,7 +98,9 @@ footer a { color: var(--text); }
 
 <h2>What it reads from other programs</h2>
 <ul>
-<li>Every 10 seconds the app lists the processes on your Mac with <code>ps</code> (process id, parent, user, terminal, start time, executable path), to find open sessions and the app that hosts each one, and keeps only the <code>claude</code> processes of your macOS user. To show each session on the right account, it reads the environment of those processes with <code>ps</code> and uses exactly one value from it, <code>CLAUDE_CONFIG_DIR</code>, a folder path. For <code>ANTHROPIC_API_KEY</code>, <code>ANTHROPIC_AUTH_TOKEN</code> and <code>CLAUDE_CODE_OAUTH_TOKEN</code> it only looks at whether the name is present. No other value is used, stored or logged. The environment of Claude desktop's sessions is not read.</li>
+<li>Every 10 seconds the app lists the processes on your Mac with <code>ps</code> (process id, parent, user, terminal, start time, executable path), to find open sessions and the app that hosts each one, and keeps only the Claude Code processes of your macOS user. Claude Code installed with npm can run under the name <code>node</code>, so for your own <code>node</code> processes the app also reads the command line with <code>ps</code>; it looks only at the program and its first argument, to tell whether the process is Claude Code, and uses, stores and logs nothing else of it. To show each session on the right account, it reads the environment of those processes with <code>ps</code> and uses exactly one value from it, <code>CLAUDE_CONFIG_DIR</code>, a folder path. For <code>ANTHROPIC_API_KEY</code>, <code>ANTHROPIC_AUTH_TOKEN</code> and <code>CLAUDE_CODE_OAUTH_TOKEN</code> it only looks at whether the name is present. No other value is used, stored or logged. The environment of Claude desktop's sessions is not read.</li>
+<li>When you delegate a run, the <code>aolangai</code> command asks <code>ps</code> about its own process and then about each of its parents in turn (process id, parent, user, terminal, start time, executable path), to find the Claude Code session that called it and the app that hosts that session; it does not list the other processes on your Mac. For a <code>node</code> ancestor it also reads the command line, and looks only at the program and its first argument, to tell whether the process is Claude Code; it uses, stores and logs nothing else of it.</li>
+<li>To tell which account that session runs on, the command reads one value of its own environment, <code>CLAUDE_CONFIG_DIR</code>. For <code>ANTHROPIC_API_KEY</code>, <code>ANTHROPIC_AUTH_TOKEN</code> and <code>CLAUDE_CODE_OAUTH_TOKEN</code> it only looks at whether the name is present, as the app does for open sessions. No other value is used, stored or logged, and the environment of no other process is read. The result, the session's process id, start time, account and host app kind, is stored on the run in the local data store, and nothing leaves your Mac.</li>
 <li>It reads each session's working folder with <code>lsof</code>, to show the folder in the session's row.</li>
 <li>From Terminal it reads only each tab's terminal device (tty) and tab title, to name sessions. It does not read window names, because a window name can contain environment variables of the process running in the tab.</li>
 </ul>
@@ -107,7 +109,8 @@ footer a { color: var(--text); }
 <p>The app and the command send nothing anywhere themselves: no analytics, no crash reports, no update checks. The only network use is the <code>claude</code> you installed, which aolangai runs to ask for each account's quota, to check that an account is logged in, and to do the work you delegate, and which you use in the Terminal sessions it opens for you, all under your own login, the same as when you use Claude Code yourself. A link in a run's result opens in your browser only when you click it.</p>
 
 <h2>This website</h2>
-<p>This site has no analytics and no cookies, and its pages load nothing from other origins. The demo runs in your browser on invented accounts and runs; it makes no network request and talks neither to Claude nor to your Mac.</p>
+<p>This site sets no cookies. Its home page counts visits with Cloudflare Web Analytics: Cloudflare, which serves this site, adds a script from <code>static.cloudflareinsights.com</code> to that page, and the script reports the page view and how fast the page loaded to Cloudflare, through <code>/cdn-cgi/rum</code> on this site. <a href="https://www.cloudflare.com/web-analytics/">Cloudflare states</a> that Web Analytics uses no cookies or other storage in your browser and does not fingerprint visitors. This page and the demo do not run that script, and the site loads nothing else from other origins.</p>
+<p>The demo runs in your browser on invented accounts and runs; it makes no network request and talks neither to Claude nor to your Mac.</p>
 
 <h2>Removing everything</h2>
 <p>Deleting <code>aolangai.app</code> does not remove what the app wrote outside itself. Remove these yourself:</p>

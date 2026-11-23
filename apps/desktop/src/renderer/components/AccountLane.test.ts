@@ -1,6 +1,7 @@
 import { expect, test } from "vitest";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
+import type { Run } from "@aolangai/core";
 import type { AppState } from "../../shared/api.js";
 import { account, appState, run, status } from "../testing.js";
 import type { OpenSession } from "../../shared/api.js";
@@ -10,10 +11,13 @@ import { AccountLane } from "./AccountLane.js";
 const at = (h: number, m = 0) => new Date(2026, 10, 17, h, m).getTime();
 const NOW = at(12, 0);
 
-function html(s: Partial<AppState>, steps: Record<number, string | undefined> = {}): string {
+function html(s: Partial<AppState>, steps: Record<number, string | undefined> = {}, callerLabel?: (r: Run) => string | undefined): string {
   const lane = lanes(appState(s))[0]!;
   return renderToStaticMarkup(
-    createElement(AccountLane, { lane, now: NOW, steps, onToggleAccepting: () => {}, onLogin: () => {}, onOpenTerminal: () => {}, onOpenRun: () => {}, onFocusSession: () => {} }),
+    createElement(AccountLane, {
+      lane, now: NOW, steps, callerLabel,
+      onToggleAccepting: () => {}, onLogin: () => {}, onOpenTerminal: () => {}, onOpenRun: () => {}, onFocusSession: () => {}, onHideRun: () => {}, onClearFinished: () => {},
+    }),
   );
 }
 
@@ -60,11 +64,61 @@ test("running run: title, folder, time, newest step; finished run: status", () =
   expect(h).toContain("40 s");
   expect(h).toContain(">done<");
   expect(h).toContain("done · permission denied");
-  expect(h).not.toContain("No runs yet");
+  expect(h).not.toContain("No recent runs");
 });
 
 test("a lane with no runs", () => {
-  expect(html({ accounts: [account()] })).toContain("No runs yet");
+  expect(html({ accounts: [account()] })).toContain("No recent runs");
+});
+
+/** The greatest number of <button> elements open at once in `h`: 1 means no button sits inside another. */
+function buttonDepth(h: string): number {
+  let depth = 0;
+  let max = 0;
+  for (const m of h.matchAll(/<(\/?)button[\s>]/g)) {
+    depth += m[1] === "/" ? -1 : 1;
+    max = Math.max(max, depth);
+  }
+  return max;
+}
+
+const hideButton = (id: number) => `<button type="button" class="run-hide" aria-label="Hide run #${id}" title="Hide this run from the lane">×</button>`;
+const CLEAR = '<button type="button" class="small" title="Hide every finished run of this account from the lane">Clear finished</button>';
+
+test("a finished run row has a hide button named after the run; a running row has none", () => {
+  const h = html({
+    accounts: [account()],
+    runs: [run({ id: 14, status: "running", createdAt: NOW - 60_000 }), run({ id: 13, status: "failed", createdAt: NOW - 600_000, finishedAt: NOW - 560_000 })],
+  });
+  expect(h).toContain(hideButton(13));
+  expect(h).not.toContain("Hide run #14");
+  expect(h.match(/class="run-hide"/g)).toHaveLength(1);
+});
+
+test("no button is nested inside another button", () => {
+  const h = html(
+    {
+      accounts: [account()],
+      runs: [run({ id: 14, status: "running", createdAt: NOW - 60_000 }), run({ id: 13, status: "done", createdAt: NOW - 600_000, finishedAt: NOW - 560_000 })],
+      sessions: [{ pid: 1, kind: "Terminal", accountId: "a1", cwd: "/Users/x/p", tty: "ttys001", startedAt: NOW }],
+    },
+    {},
+    () => "Personal · notes",
+  );
+  expect(buttonDepth("<button>a</button><div><button>b</button></div>")).toBe(1);
+  expect(buttonDepth("<button>a<button>b</button></button>")).toBe(2);
+  expect(h).toContain("run-hide");
+  expect(buttonDepth(h)).toBe(1);
+});
+
+test("Clear finished shows only when the lane has a visible finished run", () => {
+  const finished = run({ id: 13, status: "done", createdAt: NOW - 600_000, finishedAt: NOW - 560_000 });
+  expect(html({ accounts: [account()], runs: [finished] })).toContain(CLEAR);
+  expect(html({ accounts: [account()] })).not.toContain("Clear finished");
+  expect(html({ accounts: [account()], runs: [run({ id: 14, status: "running", createdAt: NOW })] })).not.toContain("Clear finished");
+  const allHidden = html({ accounts: [account()], runs: [{ ...finished, hiddenAt: NOW }] });
+  expect(allHidden).not.toContain("Clear finished");
+  expect(allHidden).toContain("No recent runs");
 });
 
 test("not logged in: has a Log in button; Claude Code not installed; connection error", () => {
@@ -133,4 +187,15 @@ test("open sessions: an 'Open now' line and one row per session, only when the l
 test("a session opened the day before shows the date, relative to the lane's now", () => {
   const old: OpenSession = { pid: 3, kind: "Terminal", accountId: "a1", cwd: "/Users/x/p", tty: "ttys003", startedAt: at(9, 5) - 24 * 3600_000 };
   expect(html({ accounts: [account()], sessions: [old] })).toContain("since 09:05 16 Nov");
+});
+
+test("a run row says which session asked for it, as text; none when the caller is not known", () => {
+  const runs = [run({ id: 5, status: "done", createdAt: NOW - 60_000, finishedAt: NOW })];
+  const h = html({ accounts: [account()], runs }, {}, () => "Personal · notes");
+  expect(h).toContain('<span class="run-from">from Personal · notes</span>');
+  expect(html({ accounts: [account()], runs }, {}, () => undefined)).not.toContain("run-from");
+  expect(html({ accounts: [account()], runs })).not.toContain("run-from");
+  const tag = html({ accounts: [account()], runs }, {}, () => "<b>x</b>");
+  expect(tag).not.toContain("<b>x</b>");
+  expect(tag).toContain("from &lt;b&gt;x&lt;/b&gt;");
 });

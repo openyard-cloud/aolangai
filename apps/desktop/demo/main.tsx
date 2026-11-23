@@ -43,6 +43,17 @@ async function playScene(): Promise<void> {
       await when(() => $(".detail") === null || $$(".detail .steps li, .detail .hint").some((e) => e.textContent !== "Loading…"));
       break;
     }
+    case "map":
+    case "map-detail": {
+      await when(() => lanesReady() && $$(".view-switch button").length > 0);
+      $$(".view-switch button").find((b) => b.textContent === "Map")!.click();
+      await when(() => $(".map-node") !== null);
+      if (params.scene === "map-detail") {
+        $$(".map-node").find((n) => n.querySelector("title")?.textContent === "Personal")!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+        await when(() => $(".map-detail .run-row") !== null);
+      }
+      break;
+    }
     case "settings": {
       await when(() => $(".topbar") !== null && $$(".topbar button").some((b) => b.textContent === "Settings"));
       $$(".topbar button").find((b) => b.textContent === "Settings")!.click();

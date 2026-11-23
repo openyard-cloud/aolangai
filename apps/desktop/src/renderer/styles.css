@@ -11,6 +11,8 @@
   --warn: #c88a12;
   --idle: #9a9993;
   --code: #f3f2ee;
+  /* Lines of the delegation map. */
+  --edge: #4a7bd0;
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
@@ -27,6 +29,7 @@
     --warn: #e5b04a;
     --idle: #77766f;
     --code: #2a2a28;
+    --edge: #7fa6e8;
     color-scheme: dark;
   }
 }
@@ -47,6 +50,11 @@ select, input, textarea { font: inherit; color: inherit; background: var(--panel
 .topbar button { -webkit-app-region: no-drag; }
 .topbar .title { font-weight: 600; }
 .topbar .spacer { flex: 1; }
+.view-switch { display: flex; }
+.view-switch > button { border-radius: 0; }
+.view-switch > button:first-child { border-radius: 6px 0 0 6px; }
+.view-switch > button:last-child { border-radius: 0 6px 6px 0; margin-left: -1px; }
+.view-switch > button[aria-pressed="true"] { background: var(--accent); color: var(--accent-text); border-color: var(--accent); position: relative; }
 button.link { border: none; background: none; padding: 0; color: var(--warn); font-weight: 600; }
 button.link:hover { text-decoration: underline; }
 .running-count { color: var(--muted); font-variant-numeric: tabular-nums; }
@@ -89,8 +97,16 @@ button.small { padding: 0 6px; font-size: 12px; }
 .outside-sessions > summary { cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .lane-runs { display: flex; flex-direction: column; margin-top: 6px; border-top: 1px solid var(--border); padding-top: 4px; }
 .lane-empty { color: var(--muted); font-size: 12px; padding: 4px 0; }
-.run-row { display: grid; grid-template-columns: 10px minmax(0, 3fr) minmax(0, 1.4fr) 72px minmax(0, 2fr); gap: 4px 10px; align-items: center; width: 100%; text-align: left; border: none; border-radius: 6px; background: transparent; padding: 4px 6px; }
-.run-row:hover { background: color-mix(in srgb, var(--text) 6%, transparent); }
+.lane-runs-head { display: flex; justify-content: flex-end; }
+/* A run row plus, on a lane, its hide button (or an empty slot as wide) beside it. */
+.run-line { display: flex; align-items: center; min-width: 0; border-radius: 6px; }
+.run-line:hover { background: color-mix(in srgb, var(--text) 6%, transparent); }
+.run-row { flex: 1; min-width: 0; display: grid; grid-template-columns: 10px minmax(0, 3fr) minmax(0, 1.4fr) 72px minmax(0, 2fr); gap: 4px 10px; align-items: center; text-align: left; border: none; border-radius: 6px; background: transparent; padding: 4px 6px; }
+.run-hide, .run-hide-slot { flex: none; width: 22px; }
+/* In the DOM always, so the keyboard reaches it; seen on hover or when focus is in the row. */
+.run-hide { opacity: 0; align-self: stretch; border: none; background: transparent; padding: 0; color: var(--muted); }
+.run-line:hover .run-hide, .run-line:focus-within .run-hide { opacity: 1; }
+.run-hide:hover { color: var(--text); }
 .run-row > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .run-id { color: var(--muted); font-variant-numeric: tabular-nums; }
 .run-folder, .run-time { color: var(--muted); font-size: 12px; }
@@ -99,6 +115,8 @@ button.small { padding: 0 6px; font-size: 12px; }
 .run-status { font-size: 12px; color: var(--muted); }
 .run-status.failed { color: var(--danger); }
 .run-status.limited, .run-status.warn { color: var(--warn); }
+/* On its own line under the title, so the columns of every row stay where they are. */
+.run-row > .run-from { grid-column: 2 / -1; grid-row: 2; margin-top: -3px; font-size: 11px; color: var(--muted); }
 .run-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--idle); }
 .run-dot.running { background: var(--accent); }
 .run-dot.done { background: var(--ok); }
@@ -137,6 +155,10 @@ button.small { padding: 0 6px; font-size: 12px; }
 .step-at, .step-kind { color: var(--muted); font-size: 12px; }
 .steps li.tool .step-text { background: var(--code); padding: 0 5px; border-radius: 4px; max-height: 8em; overflow: auto; }
 .steps li.text .step-text { max-height: 8em; overflow: auto; }
+/* A long session name shrinks with an ellipsis; Switch to stays whole beside it. */
+.meta dd.asked-by { display: flex; align-items: center; gap: 8px; }
+.asked-by-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.meta dd > .asked-switch { flex: none; }
 .detail-actions { padding: 10px 16px; border-top: 1px solid var(--border); }
 
 /* Empty state */
@@ -207,3 +229,49 @@ fieldset { border: 1px solid var(--border); border-radius: 6px; display: flex; f
 .md-copy { position: absolute; top: 4px; right: 4px; opacity: 0; }
 .md-code:hover .md-copy, .md-copy:focus { opacity: 1; }
 .md-img { color: var(--muted); font-style: italic; }
+
+/* Delegation map. Colours come from the variables above, so light and dark both follow the system. */
+.map-page { max-width: 1100px; margin: 0 auto; }
+.map { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; }
+.map-svg { display: block; width: 100%; max-width: 900px; height: auto; margin: 0 auto; }
+.map-svg text { fill: var(--text); font-size: 12px; }
+.map-node, .map-edge { cursor: pointer; outline: none; }
+.node-box { fill: var(--panel); stroke: var(--border); stroke-width: 1.5; }
+.map-node:hover .node-box { stroke: var(--muted); }
+.map-node:focus-visible .node-box { stroke: var(--accent); stroke-width: 2.5; }
+.map-node.unknown .node-box { fill: var(--bg); stroke: var(--muted); stroke-dasharray: 5 4; }
+.map-svg .node-name { font-size: 13px; font-weight: 600; }
+.map-svg .node-meta { fill: var(--muted); font-size: 11px; }
+.map-bar { fill: var(--border); }
+.map-fill { fill: var(--ok); }
+.map-fill.warn { fill: var(--warn); }
+.map-fill.danger { fill: var(--danger); }
+.edge { fill: none; stroke: var(--edge); stroke-width: 2; }
+.edge.live { stroke-dasharray: 6 4; }
+.edge.fail { stroke: var(--danger); }
+.edge-hit { fill: none; stroke: transparent; stroke-width: 14; }
+.map-edge:hover .edge, .map-edge:focus-visible .edge { stroke-width: 3; }
+.arrow path { fill: var(--edge); }
+.arrow.fail path { fill: var(--danger); }
+.pill { fill: var(--panel); stroke: var(--edge); stroke-width: 1; }
+.pill.fail { stroke: var(--danger); }
+.map-edge:focus-visible .pill { stroke-width: 2.5; }
+.map-svg .pill-text { font-size: 11px; font-variant-numeric: tabular-nums; }
+.map-empty { text-align: center; margin: 4px 0 8px; }
+
+/* One account of the map opened up: sessions left, runs right, lines between them. */
+.map-detail { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; }
+.map-detail-head { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; min-width: 0; }
+.map-detail-head h2 { font-size: 15px; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.map-detail-body { position: relative; display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); column-gap: 64px; align-items: start; }
+.map-links { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
+.map-links .link { fill: none; stroke: var(--edge); stroke-width: 1.5; }
+.map-links .link.live { stroke-dasharray: 5 4; }
+.map-links .link.fail { stroke: var(--danger); }
+.map-detail-body h3 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.03em; color: var(--muted); margin: 0 0 6px; }
+.map-callers, .map-workers { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.map-caller { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 4px 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--panel); }
+.map-caller-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.map-caller > button { flex: none; }
+.map-worker { border: 1px solid var(--border); border-radius: 8px; padding: 4px 6px; background: var(--panel); min-width: 0; }
+.map-worker-name { font-weight: 600; font-size: 13px; padding: 2px 6px; }

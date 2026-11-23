@@ -6,7 +6,7 @@
 
 [Website and demo](https://aolangai.openyard.cloud) · [Reference](docs/reference.md) · [Privacy](docs/reference.md#privacy) · Part of [OpenYard](https://openyard.cloud)
 
-![The aolangai window with sample data: the Side project, Work and Personal accounts, each with quota bars and open sessions; Side project and Work list recent delegated runs, Personal has none yet and is over its reserve; the folded Outside the lanes line at the bottom](docs/screenshots/overview.png)
+![The aolangai window with sample data: the Side project, Work and Personal accounts, each with quota bars and open sessions; Side project and Work list recent delegated runs, each marked with the account and session that asked for it, Personal has none yet and is over its reserve; the folded Outside the lanes line at the bottom](docs/screenshots/overview.png)
 
 - **One window for every account.** Quota bars and the Claude Code sessions open on your Mac, in the app and in the menu bar.
 - **Another account when one runs out.** **Open Terminal** starts Claude Code on the account you pick.
@@ -62,9 +62,13 @@ You can also call the command yourself:
 
 **In the app.**
 
-- Click a run to see its prompt, result and steps, with **Stop**, **Retry** and **Open in Terminal**.
+- Each run says `from <account> · <session>`: the Claude Code session that delegated it. Click a run to see its prompt, result and steps, **Asked by** with **Switch to**, and **Stop**, **Retry** and **Open in Terminal**.
 - **Needs you** collects runs that failed, hit a limit or had a permission denied, and accounts over their reserve.
 - **Switch to** brings an open session's Terminal tab or app to the front.
+- **×** on a finished run, or **Clear finished** on a lane, hides it from the lane and from Needs you. It stays in the database, and the Map still counts it.
+- **Map** (the `Lanes | Map` switch) draws which account's sessions delegated to which in the last 24 hours; click a box or an arrow to see the sessions and their runs.
+
+![The Map with sample data: Work and Personal each hand work to Side project, Personal also hands work to Work; one arrow is red for a failed run, one is dashed for a run in progress](docs/screenshots/map.png)
 
 ![Needs you with sample data: a denied permission, a failed run and an account over its reserve](docs/screenshots/needs-you.png)
 

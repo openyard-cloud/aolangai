@@ -17,13 +17,13 @@ export interface Lane {
 const RECENT_PER_LANE = 5;
 const ATTENTION_WINDOW_MS = 24 * 60 * 60_000;
 
-/** One lane per account, accepting accounts first then by name; `recent` = the 5 newest finished runs. */
+/** One lane per account, accepting accounts first then by name; `recent` = the 5 newest finished runs not hidden. */
 export function lanes(s: AppState): Lane[] {
   const statusOf = new Map(s.statuses.map((x) => [x.accountId, x]));
   const accounts = [...s.accounts].sort((a, b) => Number(b.accepting) - Number(a.accepting) || a.name.localeCompare(b.name));
   return accounts.map((account) => {
     const mine = s.runs.filter((r) => r.accountId === account.id);
-    const finished = mine.filter((r) => r.status !== "running").sort((a, b) => (b.finishedAt ?? b.createdAt) - (a.finishedAt ?? a.createdAt));
+    const finished = mine.filter((r) => r.status !== "running" && r.hiddenAt === undefined).sort((a, b) => (b.finishedAt ?? b.createdAt) - (a.finishedAt ?? a.createdAt));
     return {
       account,
       status: statusOf.get(account.id),
@@ -39,12 +39,15 @@ export type Attention =
   | { kind: "failed" | "limited" | "denied"; run: Run }
   | { kind: "reserve"; account: Account; usedPct: number };
 
-/** Newest first (the order of `s.runs`). Failed, limited and denied runs of the last 24 hours that have no later retry, plus accounts over their reserve. */
+/**
+ * Newest first (the order of `s.runs`). Failed, limited and denied runs of the last 24 hours that have no later retry
+ * and are not hidden, plus accounts over their reserve.
+ */
 export function needsYou(s: AppState, now: number): Attention[] {
   const retried = new Set(s.runs.flatMap((r) => (r.retryOf === undefined ? [] : [r.retryOf])));
   const out: Attention[] = [];
   for (const run of s.runs) {
-    if (retried.has(run.id) || now - (run.finishedAt ?? run.createdAt) > ATTENTION_WINDOW_MS) continue;
+    if (run.hiddenAt !== undefined || retried.has(run.id) || now - (run.finishedAt ?? run.createdAt) > ATTENTION_WINDOW_MS) continue;
     if (run.status === "failed" || run.status === "limited") out.push({ kind: run.status, run });
     else if (run.status === "done" && (run.denials?.length ?? 0) > 0) out.push({ kind: "denied", run });
   }

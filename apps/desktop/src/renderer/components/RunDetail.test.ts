@@ -2,16 +2,18 @@ import { expect, test } from "vitest";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { Run, RunEvent } from "@aolangai/core";
+import { OTHER_KIND, type OpenSession } from "../../shared/api.js";
 import { run } from "../testing.js";
+import type { CallerView } from "../view/callers.js";
 import { RunDetail } from "./RunDetail.js";
 
 const at = new Date(2026, 10, 17, 9, 0).getTime();
 const NOW = at + 10 * 60_000;
 const noop = () => {};
-const html = (r: Partial<Run>, events: RunEvent[] | "loading" = [], others: Run[] = []) => {
+const html = (r: Partial<Run>, events: RunEvent[] | "loading" = [], others: Run[] = [], caller?: CallerView) => {
   const shown = run({ createdAt: at, ...r });
   return renderToStaticMarkup(
-    createElement(RunDetail, { run: shown, runs: [shown, ...others], accountName: "Claude B", now: NOW, events: events === "loading" ? undefined : events, onClose: noop, onStop: noop, onRetry: noop, onTerminal: noop, onOpenLink: noop }),
+    createElement(RunDetail, { run: shown, runs: [shown, ...others], accountName: "Claude B", now: NOW, events: events === "loading" ? undefined : events, caller, onClose: noop, onStop: noop, onRetry: noop, onTerminal: noop, onOpenLink: noop, onFocusSession: noop }),
   );
 };
 const buttons = (h: string) => [...h.matchAll(/<button[^>]*>([^<]*)<\/button>/g)].map((m) => m[1]);
@@ -67,4 +69,43 @@ test("text from the user and the worker does not become HTML: prompt, error, ste
 test("steps still loading, and no steps yet", () => {
   expect(html({}, "loading")).toContain("Loading");
   expect(html({}, [])).toContain("No steps yet");
+});
+
+const caller = (session?: Partial<OpenSession>): CallerView => ({
+  accountId: "personal",
+  accountName: "Personal",
+  ...(session ? { session: { pid: 100, kind: "Terminal", tty: "ttys004", startedAt: at, ...session } } : {}),
+  place: "notes",
+  label: "Personal · notes",
+  key: "100:1",
+});
+
+test("Asked by: the caller's label, with Switch to while its session is open", () => {
+  const h = html({ status: "done" }, [], [], caller({}));
+  expect(h).toContain("<dt>Asked by</dt>");
+  expect(h).toContain("Personal · notes");
+  expect(buttons(h)).toContain("Switch to");
+  expect(buttons(html({ status: "done" }, [], [], caller()))).not.toContain("Switch to");
+});
+
+test("Asked by: the label sits in its own span, so a long one shrinks and Switch to stays beside it", () => {
+  const label = `Personal · ${"n".repeat(80)}`;
+  const h = html({ status: "done" }, [], [], { ...caller({}), label });
+  expect(h).toMatch(new RegExp(`<dd class="asked-by"><span class="asked-by-label">${label}</span><button[^>]*class="small asked-switch"[^>]*>Switch to</button></dd>`));
+});
+
+test("Asked by: no Switch to for a session nothing can bring forward", () => {
+  expect(buttons(html({ status: "done" }, [], [], caller({ kind: OTHER_KIND, tty: undefined })))).not.toContain("Switch to");
+});
+
+test("Asked by: unknown without a caller", () => {
+  const h = html({ status: "done" });
+  expect(h).toContain('<dt>Asked by</dt><dd class="asked-by"><span class="asked-by-label">unknown</span></dd>');
+  expect(buttons(h)).not.toContain("Switch to");
+});
+
+test("Asked by: a caller label containing HTML is text", () => {
+  const h = html({ status: "done" }, [], [], { ...caller(), label: "<i>x</i>" });
+  expect(h).not.toContain("<i>x</i>");
+  expect(h).toContain("&lt;i&gt;x&lt;/i&gt;");
 });

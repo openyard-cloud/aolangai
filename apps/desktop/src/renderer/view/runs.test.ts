@@ -41,6 +41,16 @@ test("lanes: running runs apart, the 5 newest finished runs, the right account, 
   expect(a2.recent).toEqual([]);
 });
 
+test("lanes: hidden runs are left out of recent, older visible runs fill the 5 slots", () => {
+  const finished = [1, 2, 3, 4, 5, 6, 7].map((i) =>
+    run({ id: i, createdAt: i * 1000, finishedAt: i * 1000 + 500, ...(i === 7 || i === 5 ? { hiddenAt: 9000 } : {}) }),
+  );
+  const s = appState({ accounts: [account()], runs: [run({ id: 20, status: "running", createdAt: 9000 }), ...finished] });
+  const [lane] = lanes(s);
+  expect(lane!.running.map((r) => r.id)).toEqual([20]);
+  expect(lane!.recent.map((r) => r.id)).toEqual([6, 4, 3, 2, 1]);
+});
+
 test("needsYou: failed, limited and permission-denied runs in the last 24 hours", () => {
   const recent = NOW - HOUR;
   const s = appState({
@@ -69,6 +79,19 @@ test("needsYou: leaves out a run that has a retry, and runs older than 24 hours"
     ],
   });
   expect(needsYou(s, NOW).map((a) => (a.kind === "reserve" ? 0 : a.run.id))).toEqual([7]);
+});
+
+test("needsYou: leaves out hidden runs, so hiding a failed run dismisses it", () => {
+  const recent = NOW - HOUR;
+  const s = appState({
+    accounts: [account()],
+    runs: [
+      run({ id: 3, status: "failed", createdAt: recent, finishedAt: recent, hiddenAt: NOW }),
+      run({ id: 2, status: "done", denials: ["Bash(x)"], createdAt: recent, finishedAt: recent, hiddenAt: NOW }),
+      run({ id: 1, status: "limited", createdAt: recent, finishedAt: recent }),
+    ],
+  });
+  expect(needsYou(s, NOW).map((a) => (a.kind === "reserve" ? "reserve" : `${a.kind}:${a.run.id}`))).toEqual(["limited:1"]);
 });
 
 test("needsYou: an account with usedPct >= reservePct (the largest number of its windows)", () => {
