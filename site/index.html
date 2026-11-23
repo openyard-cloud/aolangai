@@ -235,7 +235,7 @@ footer a { color: var(--text); }
       <div class="still">
         <div class="window">
           <div class="titlebar"><div class="lights" aria-hidden="true"><i></i><i></i><i></i></div><span aria-hidden="true">aolangai</span></div>
-          <img src="overview.png" width="1440" height="800" loading="lazy" alt="The aolangai window with sample data: the Side project, Work and Personal accounts, each with quota bars and open sessions; Side project and Work list recent delegated runs, Personal has none yet and is over its reserve">
+          <img src="overview.png" width="1440" height="904" loading="lazy" alt="The aolangai window with sample data: the Side project, Work and Personal accounts, each with quota bars and open sessions; Side project and Work list recent delegated runs, each marked with the account and session that asked for it, Personal has none yet and is over its reserve">
         </div>
         <p class="still-note">The live demo needs a screen at least 900 pixels wide; this is its main screen, with the same sample data. <a href="demo/index.html">Open the demo anyway</a></p>
       </div>
@@ -262,6 +262,10 @@ footer a { color: var(--text); }
           <h3>Delegate work from Claude Code</h3>
           <p>Ask Claude Code to delegate work to a subagent, to move work to another account or to spread tokens across your accounts, and the <code>aolangai</code> skill has it call the command instead of starting its own subagent. The work runs on the account with the most quota left among those <b>Accepting work</b>; the result comes back to the session. <span class="limit">Used for real from Claude Code in a terminal only; from Claude desktop it is not verified yet.</span></p>
         </article>
+        <article class="card">
+          <h3>Who hands work to whom</h3>
+          <p>Every run records which Claude Code session delegated it, shown on the lane as <b>from</b> that account and session, and as <b>Asked by</b> in the run's detail. The <b>Map</b> view draws an arrow from each account that asked to the account that did the work over the last 24 hours, with run counts; click a box or an arrow to see the sessions and their runs. Finished runs can be hidden from a lane with <b>×</b> or <b>Clear finished</b>; the Map still counts them.</p>
+        </article>
       </div>
     </div>
   </section>
@@ -273,7 +277,7 @@ footer a { color: var(--text); }
       <ul class="points measure">
         <li>The only <code>claude</code> it runs is the one you installed. Logging in goes through Claude's own <code>claude auth login</code>; aolangai never reads, stores or forwards a login token, and does not touch the Keychain.</li>
         <li>In an account's config dir it touches only <code>settings.json</code>, to open it for you, and its own skill file. A file it did not create is never overwritten.</li>
-        <li>To find open sessions it lists processes with <code>ps</code> and keeps the <code>claude</code> ones of your macOS user. It reads their environment, except for Claude desktop sessions, and uses exactly one value from it, <code>CLAUDE_CONFIG_DIR</code>; for three credential variable names it only checks whether the name is present. It also reads each session's working folder (with <code>lsof</code>) and, from Terminal, the tab's tty and title.</li>
+        <li>To find open sessions it lists processes with <code>ps</code> and keeps the <code>claude</code> ones of your macOS user. It reads their environment, except for Claude desktop sessions, and uses exactly one value from it, <code>CLAUDE_CONFIG_DIR</code>; for three credential variable names it only checks whether the name is present. It also reads each session's working folder (with <code>lsof</code>) and, from Terminal, the tab's tty and title. To find the session that called it, the <code>aolangai</code> command asks <code>ps</code> about its own process and each of its parents in turn, and reads its own <code>CLAUDE_CONFIG_DIR</code>.</li>
         <li>The app sends nothing anywhere itself. The only network use is the <code>claude</code> you installed, under your own login: asking for quota, checking that an account is logged in, doing the work you delegate, and the Terminal sessions it opens for you.</li>
       </ul>
       <p><a href="privacy.html">What the app reads and writes, in full</a></p>
