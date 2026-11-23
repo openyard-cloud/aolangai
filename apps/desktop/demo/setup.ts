@@ -3,7 +3,7 @@
 import { createDemoBridge } from "./bridge.js";
 import { STATIC_NOW, sampleEvents, samplePlans, sampleState } from "./sample.js";
 
-export const SCENES = ["overview", "needs-you", "run", "settings", "setup"] as const;
+export const SCENES = ["overview", "needs-you", "run", "settings", "setup", "map", "map-detail"] as const;
 export type Scene = (typeof SCENES)[number];
 
 export interface DemoParams {

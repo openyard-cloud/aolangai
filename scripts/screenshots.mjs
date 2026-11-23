@@ -28,13 +28,17 @@ const MIN_BYTES = 60_000;
 
 /**
  * `height` (CSS px) when a scene must end above the default bottom edge: the overview stops just below the collapsed
- * "Outside the lanes" line (bottom at y=791), before the Needs you card (top at y=803), which needs-you.png shows.
+ * "Outside the lanes" line (bottom at y=897), before the Needs you card (top at y=910), which needs-you.png shows.
+ * needs-you.png is 780 so that, scrolled to the bottom, its top edge falls in the gap above the Work lane (nothing cut).
+ * The "from ..." line under a run row made the lanes taller; the map scenes are short, so they get a short window.
  */
 const SCENES = [
-  { file: "overview.png", scene: "overview", query: "scene=overview", height: 800 },
-  { file: "needs-you.png", scene: "needs-you", query: "scene=needs-you" },
+  { file: "overview.png", scene: "overview", query: "scene=overview", height: 904 },
+  { file: "needs-you.png", scene: "needs-you", query: "scene=needs-you", height: 780 },
   { file: "run-detail.png", scene: "run", query: "scene=run&id=46" },
   { file: "settings.png", scene: "settings", query: "scene=settings" },
+  { file: "map.png", scene: "map", query: "scene=map", height: 640 },
+  { file: "map-detail.png", scene: "map-detail", query: "scene=map-detail", height: 360 },
 ];
 
 /** The link preview picture: one CSS px per pixel, the size Open Graph and Twitter cards expect. */
